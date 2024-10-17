@@ -1,21 +1,28 @@
 <script>
   const logoImage = './public/tradex_logo.jpg';
   import Authentication from "./lib/Authentication.svelte";
+
+  let showMainPage = true;
+  const handleUserData = (userData) => {
+    showMainPage = false;
+  };
+
 </script>
 
 <main>
+  {#if showMainPage}
   <div>
-    <a href="https://vitejs.dev" target="_blank" rel="noreferrer">
-      <img src={logoImage} class="logo" alt="TradEx Logo" />
-    </a>
+    <img src={logoImage} class="logo" alt="TradEx Logo" />
   </div>
   <h1>TradEx</h1>
   <p>Welcome to the Community Trading App</p>
 
   <div class="user-info">
-    <Authentication />
+    <Authentication on:userData={handleUserData}/>
   </div>
-
+  {:else if !showMainPage}
+  <h1>NEW PAGE</h1>
+  {/if}
 </main>
 
 <style>

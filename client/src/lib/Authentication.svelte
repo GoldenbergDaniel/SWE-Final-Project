@@ -1,42 +1,61 @@
 <script>
-  let showLogin = false; // Track whether to show the login form
-  let showSignUp = false; // Track whether to show the sign-up form
+  import App from "../App.svelte";
+  import { createEventDispatcher } from "svelte";
+
+  export let showSignIn = false; // Track whether to show the login form
+  export let showSignUp = false; // Track whether to show the sign-up form
+  export let showMainPage = true;
+
+  const dispatch = createEventDispatcher();
 
   const handleSignInClick = () => {
-    showLogin = true; 
+    showSignIn = true; 
     showSignUp = false; // Hide sign-up form when login is shown
   };
 
   const handleSignUpClick = () => {
     showSignUp = true;
-    showLogin = false; // Hide login form when sign-up is shown
+    showSignIn = false; // Hide login form when sign-up is shown
   };
 
   const handleBackClick = () => {
-    showLogin = false;
+    showSignIn = false;
     showSignUp = false; // Reset to the initial state
   };
+
+  const handleSubmitClick = () => {
+  const usernameInput = document.querySelector('input[type="text"]');
+  const passwordInput = document.querySelector('input[type="password"]');
+
+  const userData = {
+    username: usernameInput,
+    password: passwordInput
+  };
+
+  dispatch('userData', userData);
+};
+
 </script>
 
 <main>
-  {#if !showLogin && !showSignUp}
+  {#if !showSignIn && !showSignUp}
     <!-- Initial State: Show Sign In and Sign Up Buttons -->
     <button on:click={handleSignInClick}>Sign In</button>
     <button on:click={handleSignUpClick}>Sign Up</button>
   
-  {:else if showLogin}
-    <!-- Login Form -->
+  {:else if showSignIn}
+    <!-- Sign In Form -->
     <div>
-      <h2>Login</h2>
+      <h2>Sign In</h2>
       <label>
-        Username:
-        <input type="text" placeholder="Enter your username" />
+        Username
+        <input type="text" placeholder="Enter your username"/>
       </label>
       <label>
-        Password:
+        Password
         <input type="password" placeholder="Enter your password" />
       </label>
-      <button>Submit</button>
+      <button on:click={handleSubmitClick}>Submit</button>
       <button on:click={handleBackClick}>Back</button> <!-- Add a back button -->
     </div>
   
