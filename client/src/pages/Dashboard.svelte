@@ -1,3 +1,9 @@
+<script>
+    let page = false;
+    import Footer from '../lib/Footer.svelte';
+</script>
+
 <main>
-    <p>Hello</p>
+    <h1>Hello</h1>
+    <Footer />
 </main>

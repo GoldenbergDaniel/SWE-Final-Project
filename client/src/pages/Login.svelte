@@ -1,6 +1,7 @@
 <script>
   import Authentication from "../lib/Authentication.svelte";
   import Background from "../lib/Background.svelte";
+  import Footer from "../lib/Footer.svelte";
 
   let showSignIn = false;
   let showSignUp = false;
@@ -30,6 +31,8 @@
     on:updateSignIn={handleUpdateSignIn}
     on:updateSignUp={handleUpdateSignUp}
   />
+
+  <Footer />
 </main>
 
 <style>
