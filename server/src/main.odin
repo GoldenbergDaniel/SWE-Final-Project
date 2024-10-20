@@ -99,12 +99,3 @@ Global :: struct
 {
 	temp_arena: mem.Arena,
 }
-
-// User //////////////////////////////////////////////////////////////////////////////////
-
-User_Data :: struct
-{
-	
-}
-
-User_Name  :: distinct string
