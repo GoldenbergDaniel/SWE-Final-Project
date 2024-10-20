@@ -15,9 +15,15 @@ if [[ $MODE == "dev"     ]]; then FLAGS="-o:none -use-separate-modules"; fi
 if [[ $MODE == "debug"   ]]; then FLAGS="-o:none -debug"; fi
 if [[ $MODE == "release" ]]; then FLAGS="-o:speed -vet -no-bounds-check -no-type-assert"; fi
 
+COLLECTIONS="-collection:src=src -collection:ext=ext"
+
 echo [package:$SOURCE]
 echo [target:$TARGET]
 echo [mode:$MODE]
 
 if [[ ! -d "out" ]]; then mkdir out; fi
+<<<<<<< HEAD
 odin build $SOURCE -out:out/$OUTPUT -target:$TARGET $FLAGS 
+=======
+odin build $SOURCE -out:out/$OUTPUT -target:$TARGET $FLAGS $COLLECTIONS
+>>>>>>> ee1535e (Progress on DB)
