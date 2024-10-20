@@ -1,5 +1,6 @@
 <script>
   import { createEventDispatcher } from "svelte";
+  import { Router, Link, Route } from 'svelte-routing';
 
   export let showSignIn = false;
   export let showSignUp = false;
@@ -87,7 +88,7 @@
       <div class="button-container">
         <button class="submit">
           {#if properLogin}
-            <a href="../dashboard.html">Submit</a>
+            <Link to="/dashboard">Submit</Link>
           {/if}
         </button>
         <button class="back" on:click={handleBackClick}>Back</button> <!-- Add a back button -->

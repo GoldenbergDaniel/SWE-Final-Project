@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "chart.js": "^4.4.5",
-    "chartjs-chart-financial": "^0.2.1"
+    "chartjs-chart-financial": "^0.2.1",
+    "svelte-routing": "^2.13.0"
   }
 }

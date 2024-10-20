@@ -1,6 +1,6 @@
 <script>
-  import Authentication from "./lib/Authentication.svelte";
-  import Background from "./lib/Background.svelte";
+  import Authentication from "../lib/Authentication.svelte";
+  import Background from "../lib/Background.svelte";
 
   let showSignIn = false;
   let showSignUp = false;
@@ -16,12 +16,9 @@
 </script>
 
 <main>
-  {#if !showSignIn && !showSignUp}
-    <!-- Only show the background when neither SignIn nor SignUp are active -->
-    <Background />
-  {/if}
+  <Background />
   <div class="content">
-    <img src="/tradex_logo.jpg" class="logo" alt="TradEx Logo" />
+    <img src="../../public/tradex_logo.jpg" class="logo" alt="TradEx Logo" />
     <h1>TradEx</h1>
     <p>Welcome to the Community Trading App</p>
   </div>
@@ -51,7 +48,4 @@
   .logo:hover {
     cursor: pointer;
   }
-
-  
-
 </style>

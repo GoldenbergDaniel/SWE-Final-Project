@@ -1,13 +1,8 @@
-import './app.css'
-import Login from './Login.svelte'
-import Dashboard from './Dashboard.svelte'
+import './app.css';
+import App from './App.svelte';
 
-const app = new Login({
+const app = new App({
   target: document.getElementById('app'),
-})
+});
 
-const dashboard = new Dashboard({
-  target: document.getElementById('dashboard'),
-})
-
-export default app; dashboard
+export default app;
