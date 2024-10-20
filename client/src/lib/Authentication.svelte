@@ -56,8 +56,8 @@
         <input type="password" placeholder="Enter your password" />
       </label>
       <div class="button-container">
-        <button class="submit" on:click={handleSubmitClick}>Submit</button>
         <button class="back" on:click={handleBackClick}>Back</button> <!-- Add a back button -->
+        <button class="submit" on:click={handleSubmitClick}>Submit</button>
       </div>
     </div>
   
@@ -86,12 +86,12 @@
         <input type="password" placeholder="Enter your password" />
       </label>
       <div class="button-container">
+        <button class="back" on:click={handleBackClick}>Back</button> <!-- Add a back button -->
         <button class="submit">
           {#if properLogin}
             <Link to="/dashboard">Submit</Link>
           {/if}
         </button>
-        <button class="back" on:click={handleBackClick}>Back</button> <!-- Add a back button -->
       </div>
     </div>
   {/if}
