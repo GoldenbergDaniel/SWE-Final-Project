@@ -39,7 +39,7 @@ db_select_user :: proc(db: ^Database, name: User_Name) -> string
 	res = sql.step(stmt)
 	db_check_result(db, res)
 
-	id_text   := strings.clone_from_cstring(sql.column_text(stmt, 0))
+	id_text := strings.clone_from_cstring(sql.column_text(stmt, 0))
 	name_text := strings.clone_from_cstring(sql.column_text(stmt, 1))
 	result := strings.concatenate({id_text, name_text})
 

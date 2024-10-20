@@ -22,8 +22,4 @@ echo [target:$TARGET]
 echo [mode:$MODE]
 
 if [[ ! -d "out" ]]; then mkdir out; fi
-<<<<<<< HEAD
-odin build $SOURCE -out:out/$OUTPUT -target:$TARGET $FLAGS 
-=======
 odin build $SOURCE -out:out/$OUTPUT -target:$TARGET $FLAGS $COLLECTIONS
->>>>>>> ee1535e (Progress on DB)
