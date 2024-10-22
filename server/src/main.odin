@@ -52,11 +52,7 @@ post_signin :: proc(req: ^http.Request, res: ^http.Response)
 {
   enable_cors(&res.headers)
 
-	http.body(req, -1, res, proc(
-		res: rawptr, 
-		body: http.Body, 
-		err: http.Body_Error)
-	{
+	http.body(req, -1, res, proc(res: rawptr, body: http.Body, err: http.Body_Error) {
 		res := cast(^http.Response) res
 
 		if err != nil

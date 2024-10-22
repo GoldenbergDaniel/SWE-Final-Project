@@ -2,9 +2,17 @@ package main
 
 import "core:encoding/json"
 
-User_Data :: struct
+User :: struct
 {
-	
+  name: string,
 }
 
-User_Name :: distinct string
+user_from_json :: proc(s: string) -> User
+{
+
+}
+
+json_from_user :: proc(user: User) -> string
+{
+
+}

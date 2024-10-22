@@ -29,7 +29,7 @@ db_create_user_table :: proc(db: ^Database, name: string)
 	sql.finalize(stmt)
 }
 
-db_select_user :: proc(db: ^Database, name: User_Name) -> string
+db_select_user :: proc(db: ^Database, name: string) -> (result: User)
 {
 	schema: cstring = "SELECT * FROM Users;"
 	stmt: ^sql.Stmt
@@ -41,14 +41,14 @@ db_select_user :: proc(db: ^Database, name: User_Name) -> string
 
 	id_text := strings.clone_from_cstring(sql.column_text(stmt, 0))
 	name_text := strings.clone_from_cstring(sql.column_text(stmt, 1))
-	result := strings.concatenate({id_text, name_text})
+	result.name = strings.concatenate({id_text, name_text})
 
 	sql.finalize(stmt)
 
-	return result
+	return
 }
 
-db_insert_user :: proc(db: ^Database, name: User_Name)
+db_insert_user :: proc(db: ^Database, user: User)
 {
 	schema: cstring = "INSERT INTO Users (id, name) VALUES (3, 'Daniel');"
 	stmt: ^sql.Stmt
@@ -78,7 +78,7 @@ db_test :: proc(db: ^Database)
 	fmt.println(" - CREATE -")
 	db_create_user_table(db, "X")
 	fmt.println(" - INSERT - ")
-	db_insert_user(db, "X")
+	db_insert_user(db, User{})
 	fmt.println(" - SELECT - ")
 	result := db_select_user(db, "X")
 	fmt.println("Result:", result)
