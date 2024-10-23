@@ -19,7 +19,7 @@
 <main>
   <Background />
   <div class="content">
-    <img src="../../public/tradex_logo.jpg" class="logo" alt="TradEx Logo" />
+    <img src="/tradex_logo.jpg" class="logo" alt="TradEx Logo" />
     <h1>TradEx</h1>
     <p>Welcome to the Community Trading App</p>
   </div>
@@ -36,6 +36,10 @@
 </main>
 
 <style>
+  main {
+    min-height: 550px;
+  }
+
   .content {
     position: relative;
     z-index: 1; /* Make sure this content is above the background */

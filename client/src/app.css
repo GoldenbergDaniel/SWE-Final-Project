@@ -18,6 +18,7 @@ a {
   color: white;
   text-decoration: inherit;
 }
+
 a:hover {
   color: white;
 }
@@ -54,6 +55,36 @@ h1 {
   transition: transform 0.2s, opacity 0.2s;
 }
 
+.colored {
+  color: rgba(59, 47, 47, 0.87);
+}
+
+  /* Ensure dropdown links are styled properly */
+.dropdown-content a {
+  color: rgba(59, 47, 47, 0.87);
+  padding: 16px 12px;
+  text-decoration: none;
+  display: block;
+  text-align: center;
+  font-size: 18px;
+}
+
+.dropdown-content a:hover {
+  background-color: #f1f1f1;
+  color: #4CAF50;
+  transition: color 0.3s ease 0s;
+}
+
+.nav-link {
+  color:rgba(59, 47, 47, 0.87);
+}
+
+/* Change menu item color on hover */
+.nav-link:hover {
+  color: #4CAF50;
+  transition: color 0.3s ease 0s;
+}
+
 #app {
   max-width: 1280px;
   margin: 0 auto;
@@ -72,9 +103,7 @@ button {
   cursor: pointer;
   transition: border-color 0.25s;
 }
-button:hover {
-  border-color: #646cff;
-}
+
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
@@ -90,5 +119,11 @@ button:focus-visible {
   }
   button {
     background-color: #f9f9f9;
+  }
+}
+
+@media (max-width: 800px){
+  .nav-link {
+    color:rgb(229, 228, 217);
   }
 }

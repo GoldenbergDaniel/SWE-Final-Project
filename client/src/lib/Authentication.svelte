@@ -1,6 +1,6 @@
 <script>
   import { createEventDispatcher } from "svelte";
-  import { Router, Link, Route } from 'svelte-routing';
+  import { Link } from 'svelte-routing';
 
   export let showSignIn = false;
   export let showSignUp = false;
