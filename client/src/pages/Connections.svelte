@@ -7,6 +7,6 @@
 <main>
     <Background />
     <Header />
-    <h1>Dashboard Page</h1>
+    <h1>Hello</h1>
     <Footer />
 </main>
