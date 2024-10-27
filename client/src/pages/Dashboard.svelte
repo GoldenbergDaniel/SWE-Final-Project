@@ -7,6 +7,14 @@
 <main>
     <Background />
     <Header />
-    <h1>Dashboard Page</h1>
+    <div class="content">
+        <h1>Dashboard Page</h1>
+    </div>
     <Footer />
 </main>
+
+<style>
+    .content{
+        margin-top: 96px;
+    }
+</style>

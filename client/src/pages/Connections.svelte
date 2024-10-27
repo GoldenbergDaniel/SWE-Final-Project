@@ -7,6 +7,14 @@
 <main>
     <Background />
     <Header />
-    <h1>Hello</h1>
+    <div class="content">
+        <h1>Connections Page</h1>
+    </div>
     <Footer />
 </main>
+
+<style>
+    .content{
+        margin-top: 96px;
+    }
+</style>

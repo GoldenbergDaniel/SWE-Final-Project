@@ -1,11 +1,12 @@
-<main>
+<footer class="footer">
     <p>TradEx @ 2024</p>
     <p>Gainesville, FL</p>
-</main>
+</footer>
 
 <style>
-    main {
+    footer {
         position:relative;
+        padding-top: 20px;
         bottom: 0;
         left: 50%;
         transform: translateX(-50%);

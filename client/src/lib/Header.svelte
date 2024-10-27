@@ -56,6 +56,9 @@
             </nav>
             <ul class="nav-menu {isMenuOpen ? 'active' : ''}">
                 <li class="nav-item">
+                    <Link to="/dashboard" class="nav-link">Dashboard</Link>
+                </li>
+                <li class="nav-item">
                     <Link to="/portfolio" class="nav-link">Portfolio</Link>
                 </li>
                 <li class="nav-item">
@@ -193,10 +196,11 @@
             flex-direction: column;
             background-color: rgba(59, 47, 47, 0.87);
             width: 200px;
-            height: 100%; /* Updated to take up top 40% of the screen */
+            height: 100%; /* Adjusted to take the full screen height */
             text-align: center;
             transition: right 0.3s;
             justify-content: flex-start;
+            overflow-y: auto; /* Enables vertical scrolling */
         }
 
         .nav-item {
@@ -205,6 +209,12 @@
 
         .nav-menu.active {
             right: 0;
+        }
+    }
+
+    @media (max-height: 340px) {
+        .nav-menu {
+            max-height: 60%;
         }
     }
 
