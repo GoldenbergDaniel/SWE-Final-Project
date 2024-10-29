@@ -1,129 +1,179 @@
-<script>
+<script lang="ts">
   import { createEventDispatcher } from "svelte";
-  import { Link } from 'svelte-routing';
-
+  import { navigate } from "svelte-routing";
+  
+  interface SignUpData {
+    first_name: string;
+    last_name: string;
+    email: string;
+    username: string;
+    password: string;
+  }
+  
+  interface LoginData {
+    username: string;
+    password: string;
+  }
+  
   export let showSignIn = false;
   export let showSignUp = false;
   let properLogin = true;
-
+  let errorMessage = '';
+  
+  // Create form data bindings
+  let formData: Partial<SignUpData> = {
+    first_name: '',
+    last_name: '',
+    email: '',
+    username: '',
+    password: ''
+  };
+  
   const dispatch = createEventDispatcher();
-
+  
+  const API_BASE_URL = 'http://localhost:5174';
+  
   const handleSignInClick = () => {
-    dispatch("updateSignIn", true);  // Signal to show sign-in
-    dispatch("updateSignUp", false); // Ensure sign-up is hidden
-  };
-
-  const handleSignUpClick = () => {
-    dispatch("updateSignUp", true);  // Signal to show sign-up
-    dispatch("updateSignIn", false); // Ensure sign-in is hidden
-  };
-
-  const handleBackClick = () => {
-    dispatch("updateSignIn", false); // Reset both to false
+    dispatch("updateSignIn", true);
     dispatch("updateSignUp", false);
+    resetForm();
   };
-
-  const handleSubmitClick = () => {
-  const usernameInput = document.querySelector('input[type="text"]');
-  const passwordInput = document.querySelector('input[type="password"]');
-
-  const userData = {
-    username: usernameInput,
-    password: passwordInput
+  
+  const handleSignUpClick = () => {
+    dispatch("updateSignUp", true);
+    dispatch("updateSignIn", false);
+    resetForm();
   };
+  
+  const handleBackClick = () => {
+    dispatch("updateSignIn", false);
+    dispatch("updateSignUp", false);
+    resetForm();
+  };
+  
+  const resetForm = () => {
+    formData = {
+      first_name: '',
+      last_name: '',
+      email: '',
+      username: '',
+      password: ''
+    };
+    properLogin = true;
+    errorMessage = '';
+  };
+  
+  async function makeAuthRequest(endpoint: string, data: LoginData | SignUpData) {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
 
-  dispatch('userData', userData);
-};
+    const responseText = await response.text();
+    if (!response.ok) {
+      throw new Error(responseText || 'Authentication failed');
+    }
 
+    return responseText;
+  }
+  
+  const handleSubmitClick = async () => {
+    try {
+      const endpoint = showSignUp ? '/signup' : '/login';
+      const userData = showSignUp 
+        ? formData as SignUpData
+        : { 
+            username: formData.username, 
+            password: formData.password 
+          } as LoginData;
+
+      const message = await makeAuthRequest(endpoint, userData);
+      
+      if (showSignUp) {
+        showSignUp = false;
+        showSignIn = true;
+        alert('Sign up successful! Please log in.');
+      } else {
+        navigate("/dashboard");
+      }
+      
+      resetForm();
+    } catch (error) {
+      console.error('Authentication failed:', error);
+      properLogin = false;
+      errorMessage = error instanceof Error ? error.message : 'Authentication failed';
+    }
+  };
 </script>
 
 <main>
   {#if !showSignIn && !showSignUp}
-    <!-- Initial State: Show Sign In and Sign Up Buttons -->
     <button class="sign-in" on:click={handleSignInClick}>Sign In</button>
-    <button class ="sign-up" on:click={handleSignUpClick}>Sign Up</button>
-  
+    <button class="sign-up" on:click={handleSignUpClick}>Sign Up</button>
+
   {:else if showSignIn}
-    <!-- Sign In Form -->
     <div>
       <h2>Sign In</h2>
       <label>
         Username
-        <input type="text" placeholder="Enter your username"/>
+        <input type="text" name="username" bind:value={formData.username} placeholder="Enter your username"/>
       </label>
       <label>
         Password
-        <input type="password" placeholder="Enter your password" />
+        <input type="password" name="password" bind:value={formData.password} placeholder="Enter your password" />
       </label>
+      {#if !properLogin}
+        <p class="error-message">{errorMessage}</p>
+      {/if}
       <div class="button-container">
-        <button class="back" on:click={handleBackClick}>Back</button> <!-- Add a back button -->
+        <button class="back" on:click={handleBackClick}>Back</button>
         <button class="submit" on:click={handleSubmitClick}>Submit</button>
       </div>
     </div>
-  
+
   {:else if showSignUp}
-    <!-- Sign Up Form -->
     <div>
       <h2>Sign Up</h2>
-      <label>
-        First Name:
-        <input type="text" placeholder="Enter your name" />
-      </label>
-      <label>
-        Last Name:
-        <input type="text" placeholder="Enter your last name" />
-      </label>
-      <label>
-        Email:
-        <input type="email" placeholder="Enter your email" />
-      </label>
-      <label>
-        Username:
-        <input type="text" placeholder="Enter your username" />
-      </label>
-      <label>
-        Password:
-        <input type="password" placeholder="Enter your password" />
-      </label>
+      <label>First Name: <input type="text" name="first_name" bind:value={formData.first_name} placeholder="Enter your name" /></label>
+      <label>Last Name: <input type="text" name="last_name" bind:value={formData.last_name} placeholder="Enter your last name" /></label>
+      <label>Email: <input type="email" name="email" bind:value={formData.email} placeholder="Enter your email" /></label>
+      <label>Username: <input type="text" name="username" bind:value={formData.username} placeholder="Enter your username" /></label>
+      <label>Password: <input type="password" name="password" bind:value={formData.password} placeholder="Enter your password" /></label>
+      {#if !properLogin}
+        <p class="error-message">{errorMessage}</p>
+      {/if}
       <div class="button-container">
-        <button class="back" on:click={handleBackClick}>Back</button> <!-- Add a back button -->
-        <button class="submit">
-          {#if properLogin}
-            <Link to="/dashboard">Submit</Link>
-          {/if}
-        </button>
+        <button class="back" on:click={handleBackClick}>Back</button>
+        <button class="submit" on:click={handleSubmitClick}>Submit</button>
       </div>
     </div>
   {/if}
 </main>
 
 <style>
-
   div {
     margin-top: 1em;
-    max-width: 400px; /* Limit form width */
-    width: 100%; /* Ensure it adapts to max-width */
-    text-align: left; /* Align labels and inputs within the div */
-  }
-
-  a {
-    color: white;
+    max-width: 400px;
+    width: 100%;
+    text-align: left;
   }
 
   label {
     display: block;
     margin: 0.5em 0;
-    text-align: left; /* Align the label text to the right */
   }
 
   input {
     padding: 0.6em;
     font-size: 0.9em;
     margin-top: 0.4em;
-    width: 100%; /* Make all inputs the same width */
-    box-sizing: border-box; /* Ensure padding doesn't affect width */
-    color:white;
-    border-color:antiquewhite;
+    width: 100%;
+    box-sizing: border-box;
+    color: white;
+    border-color: antiquewhite;
   }
 
   input:focus {
@@ -143,60 +193,34 @@
     justify-content: space-between;
   }
 
-  .sign-in, .sign-up, .submit, .back {
-    z-index: 2;
+  .sign-in:hover, .submit:hover, .sign-up:hover {
+    color: white;
+    border: none;
+    border-radius: 5px;
   }
 
   .sign-in:hover {
     background-color: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 5px;
-  }
-
-  .sign-in:focus{
-    outline: none;
-    box-shadow: 0 0 5px 2px #4CAF50;
-    border-color: #4CAF50;
   }
 
   .sign-up:hover {
     background-color: #c3112c;
-    color: white;
-    border: none;
-    border-radius: 5px;
   }
 
-  .sign-up:focus{
-    outline: none;
-    box-shadow: 0 0 5px 2px #c3112c;
-    border-color: #c3112c;
-  }
-
-  .submit:hover{
+  .submit:hover {
     background-color: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 5px;
   }
 
-  .back:hover{
+  .back:hover {
     background-color: #c3112c;
     color: white;
     border: none;
     border-radius: 5px;
   }
 
-  .submit:focus{
-    outline: none;
-    box-shadow: 0 0 5px 2px #4CAF50;
-    border-color: #4CAF50;
+  .error-message {
+    color: red;
+    font-size: 0.9em;
+    margin-top: 0.5em;
   }
-
-  .back:focus{
-    outline: none;
-    box-shadow: 0 0 5px 2px #c3112c;
-    border-color: #c3112c;
-  }
-
 </style>
