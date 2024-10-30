@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"regexp"
 
 	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3"
@@ -73,6 +74,13 @@ func loggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func isValidEmail(email string) bool {
+	// Basic regex for validating an email address
+	const emailRegex = `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
+	re := regexp.MustCompile(emailRegex)
+	return re.MatchString(email)
+}
+
 func PreflightHandler(w http.ResponseWriter, r *http.Request) {
 	SetCors(w.Header())
 	w.WriteHeader(http.StatusOK)
@@ -107,8 +115,51 @@ func PostSignup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate input
+	if credentials.FirstName == "" || credentials.LastName == "" {
+		http.Error(w, "First Name and Last Name are required", http.StatusBadRequest)
+		return
+	}
+
+	if credentials.Email == "" || !isValidEmail(credentials.Email) {
+		http.Error(w, "A valid email is required", http.StatusBadRequest)
+		return
+	}
+
 	if credentials.Username == "" || credentials.Password == "" {
 		http.Error(w, "Username and password are required", http.StatusBadRequest)
+		return
+	}
+
+	// Check for existing email
+	var exists int
+	err = db.QueryRow("SELECT COUNT(*) FROM users WHERE email = ?", credentials.Email).Scan(&exists)
+	if err != nil {
+		log.Printf("Database query error: %v", err)
+		http.Error(w, "Error checking email", http.StatusInternalServerError)
+		return
+	}
+	if exists > 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Email already exists",
+		})
+		return
+	}
+
+	// Check for existing username
+	err = db.QueryRow("SELECT COUNT(*) FROM users WHERE username = ?", credentials.Username).Scan(&exists)
+	if err != nil {
+		log.Printf("Database query error: %v", err)
+		http.Error(w, "Error checking username", http.StatusInternalServerError)
+		return
+	}
+	if exists > 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Username already exists",
+		})
 		return
 	}
 
