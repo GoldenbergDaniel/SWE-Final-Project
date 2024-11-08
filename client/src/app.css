@@ -28,8 +28,8 @@ body {
   display: flex;
   place-items: center;
   min-width: 320px;
-  height: 100vh;
-  min-height: 500px;
+  min-height: 100%;
+  height: auto;
   background-color: rgb(229, 228, 217);
 }
 
@@ -91,7 +91,7 @@ h1 {
   margin: 0 auto;
   padding: 2rem;
   text-align: center;
-  height: 100vh;
+  height: auto;
 }
 
 button {
