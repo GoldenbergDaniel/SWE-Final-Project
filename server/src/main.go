@@ -29,21 +29,22 @@ func initDB() {
 	}
 
 	// Drop the table if it exists and recreate it
-	_, err = db.Exec(`
-        DROP TABLE IF EXISTS users;
-        CREATE TABLE users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            first_name TEXT NOT NULL,
-            last_name TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL
-        )
-    `)
-	if err != nil {
-		log.Fatal("Error creating users table:", err)
-	}
-	fmt.Println("Connected to database and ensured users table exists.")
+	/*
+			_, err = db.Exec(`
+		        CREATE TABLE users (
+		            id INTEGER PRIMARY KEY AUTOINCREMENT,
+		            first_name TEXT NOT NULL,
+		            last_name TEXT NOT NULL,
+		            email TEXT UNIQUE NOT NULL,
+		            username TEXT UNIQUE NOT NULL,
+		            password TEXT NOT NULL
+		        )
+		    `)
+			if err != nil {
+				log.Fatal("Error creating users table:", err)
+			}
+			fmt.Println("Connected to database and ensured users table exists.")
+	*/
 }
 
 func main() {
