@@ -1,5 +1,7 @@
 @echo off
 setlocal
 
-go build -o out/server.exe src2/main.go
+set OUTPUT=server.exe
+
+go build -o out/%OUTPUT% src/main.go
 out\server.exe
