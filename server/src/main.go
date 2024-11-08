@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"regexp"
+	"time"
 
 	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3"
@@ -21,35 +21,32 @@ func initDB() {
 	var err error
 	db, err = sql.Open("sqlite3", "./data.db")
 	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
+		fmt.Println("Failed to connect to database:", err)
 	}
 
 	if err = db.Ping(); err != nil {
-		log.Fatal("Failed to ping database:", err)
+		fmt.Println("Failed to ping database:", err)
 	}
 
 	// Drop the table if it exists and recreate it
-	_, err = db.Exec(`
-        DROP TABLE IF EXISTS users;
-        CREATE TABLE users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            first_name TEXT NOT NULL,
-            last_name TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL
-        )
-    `)
-	if err != nil {
-		log.Fatal("Error creating users table:", err)
-	}
-	fmt.Println("Connected to database and ensured users table exists.")
+	// _, err = db.Exec(`
+	//       DROP TABLE IF EXISTS users;
+	//       CREATE TABLE users (
+	//           id INTEGER PRIMARY KEY AUTOINCREMENT,
+	//           first_name TEXT NOT NULL,
+	//           last_name TEXT NOT NULL,
+	//           email TEXT UNIQUE NOT NULL,
+	//           username TEXT UNIQUE NOT NULL,
+	//           password TEXT NOT NULL
+	//       )
+	//   `)
+	// if err != nil {
+	// 	fmt.Errorfl("Error creating users table:", err)
+	// }
+	// fmt.Println("Connected to database and ensured users table exists.")
 }
 
 func main() {
-	// Set up logging
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-
 	initDB()
 	defer db.Close()
 
@@ -64,12 +61,12 @@ func main() {
 	r.Use(loggingMiddleware)
 
 	fmt.Println("Server is running on localhost:5174")
-	log.Fatal(http.ListenAndServe(":5174", r))
+	http.ListenAndServe(":5174", r)
 }
 
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("Received %s request to %s", r.Method, r.URL.Path)
+		fmt.Printf("Received %s request to %s", r.Method, r.URL.Path)
 		next.ServeHTTP(w, r)
 	})
 }
@@ -88,7 +85,7 @@ func PreflightHandler(w http.ResponseWriter, r *http.Request) {
 
 func PostSignup(w http.ResponseWriter, r *http.Request) {
 	SetCors(w.Header())
-	log.Printf("Content-Type: %s", r.Header.Get("Content-Type"))
+	fmt.Printf("Content-Type: %s", r.Header.Get("Content-Type"))
 
 	var credentials struct {
 		FirstName string `json:"first_name"`
@@ -101,15 +98,15 @@ func PostSignup(w http.ResponseWriter, r *http.Request) {
 	// Read the body
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Printf("Error reading body: %v", err)
+		fmt.Printf("Error reading body: %v", err)
 		http.Error(w, "Error reading request body", http.StatusBadRequest)
 		return
 	}
-	log.Printf("Received body: %s", string(body))
+	fmt.Printf("Received body: %s", string(body))
 
 	// Decode the JSON
 	if err := json.Unmarshal(body, &credentials); err != nil {
-		log.Printf("JSON decode error: %v", err)
+		fmt.Printf("JSON decode error: %v", err)
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
@@ -134,7 +131,7 @@ func PostSignup(w http.ResponseWriter, r *http.Request) {
 	var exists int
 	err = db.QueryRow("SELECT COUNT(*) FROM users WHERE email = ?", credentials.Email).Scan(&exists)
 	if err != nil {
-		log.Printf("Database query error: %v", err)
+		fmt.Printf("Database query error: %v", err)
 		http.Error(w, "Error checking email", http.StatusInternalServerError)
 		return
 	}
@@ -150,7 +147,7 @@ func PostSignup(w http.ResponseWriter, r *http.Request) {
 	// Check for existing username
 	err = db.QueryRow("SELECT COUNT(*) FROM users WHERE username = ?", credentials.Username).Scan(&exists)
 	if err != nil {
-		log.Printf("Database query error: %v", err)
+		fmt.Printf("Database query error: %v", err)
 		http.Error(w, "Error checking username", http.StatusInternalServerError)
 		return
 	}
@@ -166,7 +163,7 @@ func PostSignup(w http.ResponseWriter, r *http.Request) {
 	// Hash the password for secure storage
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(credentials.Password), bcrypt.DefaultCost)
 	if err != nil {
-		log.Printf("Password hashing error: %v", err)
+		fmt.Printf("Password hashing error: %v", err)
 		http.Error(w, "Failed to hash password", http.StatusInternalServerError)
 		return
 	}
@@ -178,7 +175,7 @@ func PostSignup(w http.ResponseWriter, r *http.Request) {
     `, credentials.FirstName, credentials.LastName, credentials.Email, credentials.Username, string(hashedPassword))
 
 	if err != nil {
-		log.Printf("Database insert error: %v", err)
+		fmt.Printf("Database insert error: %v", err)
 		http.Error(w, "Failed to insert user", http.StatusInternalServerError)
 		return
 	}
@@ -204,7 +201,7 @@ func PostLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&credentials); err != nil {
-		log.Printf("JSON decode error: %v", err)
+		fmt.Printf("JSON decode error: %v", err)
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
@@ -213,14 +210,14 @@ func PostLogin(w http.ResponseWriter, r *http.Request) {
 	var hashedPassword string
 	err := db.QueryRow("SELECT password FROM users WHERE username = ?", credentials.Username).Scan(&hashedPassword)
 	if err != nil {
-		log.Printf("Database query error: %v", err)
+		fmt.Printf("Database query error: %v", err)
 		http.Error(w, "User not found", http.StatusUnauthorized)
 		return
 	}
 
 	// Compare the provided password with the stored hashed password
 	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(credentials.Password)); err != nil {
-		log.Printf("Password comparison error: %v", err)
+		fmt.Printf("Password comparison error: %v", err)
 		http.Error(w, "Incorrect password", http.StatusUnauthorized)
 		return
 	}
@@ -231,10 +228,21 @@ func PostLogin(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": "Login successful",
 	})
+
+	expiration := time.Now().Add(24 * time.Hour)
+	cookie := http.Cookie{
+		Name:     "logged_in",
+		Value:    "true",
+		Expires:  expiration,
+		HttpOnly: true,
+	}
+
+	http.SetCookie(w, &cookie)
 }
 
 func SetCors(header http.Header) {
-	header.Set("Access-Control-Allow-Origin", "*")
+	header.Set("Access-Control-Allow-Origin", "http://localhost:5173")
 	header.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, OPTIONS")
 	header.Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	header.Set("Access-Control-Allow-Credentials", "true")
 }

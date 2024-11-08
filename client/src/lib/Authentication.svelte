@@ -65,6 +65,7 @@
   
   async function makeAuthRequest(endpoint: string, data: LoginData | SignUpData) {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      credentials: "include",
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -106,7 +107,12 @@
       properLogin = false;
       errorMessage = error instanceof Error ? error.message : 'Authentication failed';
     }
-  };
+  }
+
+  async function onEnter()
+  {
+    handleSubmitClick()
+  }
 </script>
 
 <main>
@@ -130,7 +136,7 @@
       {/if}
       <div class="button-container">
         <button class="back" on:click={handleBackClick}>Back</button>
-        <button class="submit" on:click={handleSubmitClick}>Submit</button>
+        <button class="submit" on:keydown|preventDefault={onEnter} on:click={handleSubmitClick}>Submit</button>
       </div>
     </div>
 

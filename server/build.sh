@@ -1,6 +1,7 @@
 #!/bin/bash
 
-OUTPUT="TradeEx"
+OUTPUT="TradEx"
 
 mkdir -p out
 go build -o out/$OUTPUT src/main.go
+out/TradEx
