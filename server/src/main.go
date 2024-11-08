@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"time"
 
 	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3"
@@ -16,7 +17,7 @@ import (
 
 var db *sql.DB
 
-// Initialize the database connection and create the users table with additional fields
+// Initialize the database connection and create the users table if it doesn't exist
 func initDB() {
 	var err error
 	db, err = sql.Open("sqlite3", "./data.db")
@@ -28,10 +29,9 @@ func initDB() {
 		log.Fatal("Failed to ping database:", err)
 	}
 
-	// Drop the table if it exists and recreate it
+	// Create the users table if it doesn't exist
 	_, err = db.Exec(`
-        DROP TABLE IF EXISTS users;
-        CREATE TABLE users (
+        CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             first_name TEXT NOT NULL,
             last_name TEXT NOT NULL,
@@ -59,6 +59,8 @@ func main() {
 	r.HandleFunc("/{path}", PreflightHandler).Methods("OPTIONS")
 	r.HandleFunc("/signup", PostSignup).Methods("POST")
 	r.HandleFunc("/login", PostLogin).Methods("POST")
+	r.HandleFunc("/logout", Logout).Methods("POST")
+	r.HandleFunc("/protected", AuthMiddleware(ProtectedHandler)).Methods("GET")
 
 	// Add middleware to log all requests
 	r.Use(loggingMiddleware)
@@ -225,12 +227,79 @@ func PostLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Create a session cookie
+	sessionToken := generateSessionToken()
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session_token",
+		Value:    sessionToken,
+		Expires:  time.Now().Add(24 * time.Hour),
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	})
+
 	// Send JSON response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": "Login successful",
 	})
+}
+
+func Logout(w http.ResponseWriter, r *http.Request) {
+	SetCors(w.Header())
+
+	// Clear the session cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session_token",
+		Value:    "",
+		Expires:  time.Now().Add(-time.Hour),
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Logged out successfully",
+	})
+}
+
+func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		SetCors(w.Header())
+
+		cookie, err := r.Cookie("session_token")
+		if err != nil {
+			if err == http.ErrNoCookie {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		// Here you would typically validate the session token
+		// For this example, we'll just check if it exists
+		if cookie.Value == "" {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	}
+}
+
+func ProtectedHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "This is a protected route",
+	})
+}
+
+func generateSessionToken() string {
+	// For this example, we'll just use a timestamp
+	return fmt.Sprintf("%d", time.Now().UnixNano())
 }
 
 func SetCors(header http.Header) {
