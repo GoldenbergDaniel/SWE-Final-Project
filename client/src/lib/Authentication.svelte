@@ -32,22 +32,29 @@
   const dispatch = createEventDispatcher();
   
   const API_BASE_URL = 'http://localhost:5174';
+
+  const resetBodyHeight = () => {
+    document.body.style.height = `auto`;
+  };
   
   const handleSignInClick = () => {
     dispatch("updateSignIn", true);
     dispatch("updateSignUp", false);
+    resetBodyHeight();
     resetForm();
   };
   
   const handleSignUpClick = () => {
     dispatch("updateSignUp", true);
     dispatch("updateSignIn", false);
+    resetBodyHeight();
     resetForm();
   };
   
   const handleBackClick = () => {
     dispatch("updateSignIn", false);
     dispatch("updateSignUp", false);
+    resetBodyHeight();
     resetForm();
   };
   
