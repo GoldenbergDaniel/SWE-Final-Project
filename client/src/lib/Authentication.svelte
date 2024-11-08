@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
   import { navigate } from "svelte-routing";
+  import { isAuthenticated } from '../assets/auth.js';
   
   interface SignUpData {
     first_name: string;
@@ -105,6 +106,7 @@
         showSignIn = true;
         alert('Sign up successful! Please log in.');
       } else {
+        isAuthenticated.set(true);
         navigate("/dashboard");
       }
       

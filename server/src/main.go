@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/bcrypt"
+	"github.com/rs/cors"
 )
 
 var db *sql.DB
@@ -55,18 +56,25 @@ func main() {
 
 	r := mux.NewRouter()
 
-	// Add OPTIONS handler for CORS preflight requests
-	r.HandleFunc("/{path}", PreflightHandler).Methods("OPTIONS")
+	// Add your routes
 	r.HandleFunc("/signup", PostSignup).Methods("POST")
 	r.HandleFunc("/login", PostLogin).Methods("POST")
 	r.HandleFunc("/logout", Logout).Methods("POST")
 	r.HandleFunc("/protected", AuthMiddleware(ProtectedHandler)).Methods("GET")
 
-	// Add middleware to log all requests
-	r.Use(loggingMiddleware)
+	// Create a new CORS handler
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:5173"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		AllowCredentials: true,
+	})
 
-	fmt.Println("Server is running on localhost:5174")
-	log.Fatal(http.ListenAndServe(":5174", r))
+	// Wrap your router with the CORS handler
+	handler := c.Handler(r)
+
+	// Use the new handler instead of r
+	log.Fatal(http.ListenAndServe(":5174", handler))
 }
 
 func loggingMiddleware(next http.Handler) http.Handler {
@@ -303,7 +311,8 @@ func generateSessionToken() string {
 }
 
 func SetCors(header http.Header) {
-	header.Set("Access-Control-Allow-Origin", "*")
-	header.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, OPTIONS")
+	header.Set("Access-Control-Allow-Origin", "http://localhost:5173")
+	header.Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 	header.Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	header.Set("Access-Control-Allow-Credentials", "true")
 }
