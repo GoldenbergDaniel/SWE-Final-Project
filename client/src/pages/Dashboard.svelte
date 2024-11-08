@@ -3,7 +3,7 @@
     import Header from '../lib/Header.svelte';
     import Background from '../lib/Background.svelte';
 
-    // Example data for the table
+    // Example data for the leaderboard
     let tableData = [
         { username: 'user1', portfolioValue: 12000, gainLoss: 5 },
         { username: 'user2', portfolioValue: 9000, gainLoss: -3 },
@@ -16,33 +16,109 @@
         { username: 'user9', portfolioValue: 13000, gainLoss: 7 },
         { username: 'user10', portfolioValue: 14000, gainLoss: 3 }
     ];
+
+    // Example user balance (this can be dynamically set)
+    let userBalance = 8500;
+
+    // Variables for handling input fields
+    let ticker = '';
+    let shareNumber = 0;  // Ensure it's initialized to 0
+    let rationale = '';
+
+    // Handle share number input validation
+    function handleShareNumberInput(event) {
+        // Ensure the value is a positive number (no negative values allowed)
+        if (shareNumber < 0) {
+            shareNumber = 0;
+        }
+    }
+
+    // Handle "Place Order" button click
+    function placeOrder() {
+        // Here, you'd typically add logic to process the order
+        console.log("Order placed for:", ticker, shareNumber, rationale);
+        // Reset form fields (optional)
+        ticker = '';
+        shareNumber = 0;
+        rationale = '';
+    }
 </script>
 
 <main>
     <Background />
     <Header />
     <div class="content">
-        <h1>Leaderboard</h1>
+        <!-- Flexbox container for layout -->
+        <div class="dashboard">
+            <!-- Left side: Leaderboard -->
+            <div class="leaderboard">
+                <h2>Leaderboard</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Portfolio Value</th>
+                            <th>% Gain/Loss</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {#each tableData as { username, portfolioValue, gainLoss }}
+                            <tr>
+                                <td>{username}</td>
+                                <td>${portfolioValue}</td>
+                                <td>{gainLoss}%</td>
+                            </tr>
+                        {/each}
+                    </tbody>
+                </table>
+            </div>
 
-        <!-- Table for displaying portfolio information -->
-        <table>
-            <thead>
-                <tr>
-                    <th>Username</th>
-                    <th>Portfolio Value</th>
-                    <th>% Gain/Loss</th>
-                </tr>
-            </thead>
-            <tbody>
-                {#each tableData as { username, portfolioValue, gainLoss }}
-                    <tr>
-                        <td>{username}</td>
-                        <td>${portfolioValue}</td>
-                        <td>{gainLoss}%</td>
-                    </tr>
-                {/each}
-            </tbody>
-        </table>
+            <!-- Right side: Balance and Trade form -->
+            <div class="trade">
+                <h2>Your Balance</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>${userBalance}</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h2>Make a Trade</h2>
+                <form>
+                    <!-- Ticker input -->
+                    <input
+                        type="text"
+                        placeholder="TICKER"
+                        bind:value={ticker}
+                        class="input-field"
+                    />
+                    <!-- Share Number input -->
+                    <input
+                        type="number"
+                        placeholder="Share Number"
+                        bind:value={shareNumber}
+                        min="0"
+                        on:input={handleShareNumberInput}
+                        class="input-field"
+                    />
+                    <!-- Rationale input -->
+                    <input
+                        type="text"
+                        placeholder="Rationale"
+                        bind:value={rationale}
+                        class="input-field"
+                    />
+                    <!-- Place Order button -->
+                    <button type="button" on:click={placeOrder} class="place-order-btn">Place Order</button>
+                </form>
+            </div>
+        </div>
     </div>
     <Footer />
 </main>
@@ -53,28 +129,123 @@
         padding: 20px;
     }
 
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 20px;
+    /* Flexbox layout for dashboard */
+    .dashboard {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px; /* Space between the leaderboard and trade form */
     }
 
-    th, td {
+    /* Left side: Leaderboard */
+    .leaderboard {
+        flex: 1;
+        min-width: 45%; /* Ensure the leaderboard takes up less than half of the screen */
+    }
+
+    .leaderboard h2 {
+        text-align: center;
+        margin-bottom: 20px;
+    }
+
+    .leaderboard table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .leaderboard th, .leaderboard td {
         padding: 10px;
         text-align: left;
         border: 1px solid #ddd;
     }
 
-    th {
+    .leaderboard th {
         background-color: #f4f4f4;
         font-weight: bold;
     }
 
-    tr:nth-child(even) {
+    .leaderboard tr:nth-child(even) {
         background-color: #f9f9f9;
     }
 
-    tr:hover {
+    .leaderboard tr:hover {
         background-color: #f1f1f1;
+    }
+
+    /* Right side: Balance and Trade form */
+    .trade {
+        flex: 0 0 35%; /* Trade section takes less space */
+        min-width: 250px;
+        padding: 20px;
+        border: 1px solid #ddd;
+        background-color: #f9f9f9;
+        border-radius: 8px;
+    }
+
+    .trade h2 {
+        text-align: center;
+        margin-bottom: 20px;
+    }
+
+    /* Balance table */
+    .trade table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+    }
+
+    .trade th, .trade td {
+        padding: 10px;
+        text-align: center;
+        border: 1px solid #ddd;
+    }
+
+    .trade th {
+        background-color: #f4f4f4;
+        font-weight: bold;
+    }
+
+    .trade td {
+        font-size: 1.2em;
+    }
+
+    /* Input fields */
+    .input-field {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 15px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 16px;
+        box-sizing: border-box;
+    }
+
+    .input-field::placeholder {
+        color: #aaa;
+    }
+
+    .input-field:focus {
+        border-color: #4CAF50;
+        outline: none;
+    }
+
+    /* Place Order button */
+    .place-order-btn {
+        width: 100%;
+        padding: 12px;
+        background-color: #4CAF50; /* Green */
+        color: white;
+        border: none;
+        border-radius: 5px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+
+    .place-order-btn:hover {
+        background-color: #45a049;
+    }
+
+    .place-order-btn:active {
+        background-color: #3e8e41;
     }
 </style>
