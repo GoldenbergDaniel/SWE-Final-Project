@@ -107,7 +107,7 @@
         alert('Sign up successful! Please log in.');
       } else {
         isAuthenticated.set(true);
-        navigate("/dashboard");
+        navigate("/portfolio");
       }
       
       resetForm();
@@ -122,6 +122,7 @@
   {
     handleSubmitClick()
   }
+
 </script>
 
 <main>
@@ -132,38 +133,38 @@
   {:else if showSignIn}
     <div>
       <h2>Sign In</h2>
-      <label>
-        Username
-        <input type="text" name="username" bind:value={formData.username} placeholder="Enter your username"/>
-      </label>
-      <label>
-        Password
-        <input type="password" name="password" bind:value={formData.password} placeholder="Enter your password" />
-      </label>
-      {#if !properLogin}
-        <p class="error-message">{errorMessage}</p>
-      {/if}
-      <div class="button-container">
-        <button class="back" on:click={handleBackClick}>Back</button>
-        <button class="submit" on:keydown|preventDefault={onEnter} on:click={handleSubmitClick}>Submit</button>
-      </div>
+        <label>
+          Username
+          <input type="text" name="username" bind:value={formData.username} placeholder="Enter your username"/>
+        </label>
+        <label>
+          Password
+          <input type="password" name="password" bind:value={formData.password} placeholder="Enter your password" />
+        </label>
+        {#if !properLogin}
+          <p class="error-message">{errorMessage}</p>
+        {/if}
+        <div class="button-container">
+          <button class="back" on:click={handleBackClick}>Back</button>
+          <button class="submit" on:keydown|preventDefault={onEnter} on:click={handleSubmitClick}>Submit</button>
+        </div>
     </div>
 
   {:else if showSignUp}
     <div>
       <h2>Sign Up</h2>
-      <label>First Name: <input type="text" name="first_name" bind:value={formData.first_name} placeholder="Enter your name" /></label>
-      <label>Last Name: <input type="text" name="last_name" bind:value={formData.last_name} placeholder="Enter your last name" /></label>
-      <label>Email: <input type="email" name="email" bind:value={formData.email} placeholder="Enter your email" /></label>
-      <label>Username: <input type="text" name="username" bind:value={formData.username} placeholder="Enter your username" /></label>
-      <label>Password: <input type="password" name="password" bind:value={formData.password} placeholder="Enter your password" /></label>
-      {#if !properLogin}
-        <p class="error-message">{errorMessage}</p>
-      {/if}
-      <div class="button-container">
-        <button class="back" on:click={handleBackClick}>Back</button>
-        <button class="submit" on:click={handleSubmitClick}>Submit</button>
-      </div>
+        <label>First Name: <input type="text" name="first_name" bind:value={formData.first_name} placeholder="Enter your name" /></label>
+        <label>Last Name: <input type="text" name="last_name" bind:value={formData.last_name} placeholder="Enter your last name" /></label>
+        <label>Email: <input type="email" name="email" bind:value={formData.email} placeholder="Enter your email" /></label>
+        <label>Username: <input type="text" name="username" bind:value={formData.username} placeholder="Enter your username" /></label>
+        <label>Password: <input type="password" name="password" bind:value={formData.password} placeholder="Enter your password" /></label>
+        {#if !properLogin}
+          <p class="error-message">{errorMessage}</p>
+        {/if}
+        <div class="button-container">
+          <button class="back" on:click={handleBackClick}>Back</button>
+          <button class="submit" on:click={handleSubmitClick}>Submit</button>
+        </div>
     </div>
   {/if}
 </main>

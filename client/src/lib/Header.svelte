@@ -50,22 +50,22 @@
     <div class="header-container">
         <div class="subcontainer">
             <nav class="navbar">
-                <Link to="/dashboard" class="logo-container">
+                <Link to="/portfolio" class="logo-container">
                     <img src="tradex_logo.jpg" alt="TradEx Logo">
                 </Link>
             </nav>
             <ul class="nav-menu {isMenuOpen ? 'active' : ''}">
                 <li class="nav-item">
-                    <Link to="/dashboard" class="nav-link">Dashboard</Link>
+                    <Link to="/portfolio" class="nav-link">Portfolio</Link>
                 </li>
                 <li class="nav-item">
-                    <Link to="/portfolio" class="nav-link">Portfolio</Link>
+                    <Link to="/trade" class="nav-link">Trade</Link>
                 </li>
                 <li class="nav-item">
                     <Link to="/posts" class="nav-link">Posts</Link>
                 </li>
                 <li class="nav-item spaced-nav-item">
-                    <Link to="/connections" class="nav-link">Connections</Link>
+                    <Link to="/leaderboard" class="nav-link">Leaderboard</Link>
                 </li>
             </ul>
             <button 

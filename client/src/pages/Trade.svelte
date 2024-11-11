@@ -19,7 +19,7 @@
     <Background />
     <Header />
     <div class="content">
-        <h1>Connections Page</h1>
+        <h1>Trade Page</h1>
     </div>
     <Footer />
 </main>
