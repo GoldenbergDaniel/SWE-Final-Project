@@ -27,6 +27,31 @@
         { username: 'user10', portfolioValue: 14000, gainLoss: 3 }
     ];
 
+    // Example user balance (this can be dynamically set)
+    let userBalance = 8500;
+
+    // Variables for handling input fields
+    let ticker = '';
+    let shareNumber = 0;  // Ensure it's initialized to 0
+    let rationale = '';
+
+    // Handle share number input validation
+    function handleShareNumberInput(event) {
+        // Ensure the value is a positive number (no negative values allowed)
+        if (shareNumber < 0) {
+            shareNumber = 0;
+        }
+    }
+
+    // Handle "Place Order" button click
+    function placeOrder() {
+        // Here, you'd typically add logic to process the order
+        console.log("Order placed for:", ticker, shareNumber, rationale);
+        // Reset form fields (optional)
+        ticker = '';
+        shareNumber = 0;
+        rationale = '';
+    }
 </script>
 
 <main>
@@ -56,6 +81,52 @@
                         {/each}
                     </tbody>
                 </table>
+            </div>
+
+            <!-- Right side: Balance and Trade form -->
+            <div class="trade">
+                <h2>Your Balance</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>${userBalance}</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h2>Make a Trade</h2>
+                <form>
+                    <!-- Ticker input -->
+                    <input
+                        type="text"
+                        placeholder="TICKER"
+                        bind:value={ticker}
+                        class="input-field"
+                    />
+                    <!-- Share Number input -->
+                    <input
+                        type="number"
+                        placeholder="Share Number"
+                        bind:value={shareNumber}
+                        min="0"
+                        on:input={handleShareNumberInput}
+                        class="input-field"
+                    />
+                    <!-- Rationale input -->
+                    <input
+                        type="text"
+                        placeholder="Rationale"
+                        bind:value={rationale}
+                        class="input-field"
+                    />
+                    <!-- Place Order button -->
+                    <button type="button" on:click={placeOrder} class="place-order-btn">Place Order</button>
+                </form>
             </div>
         </div>
     </div>
