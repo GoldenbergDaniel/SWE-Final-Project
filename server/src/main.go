@@ -251,7 +251,7 @@ func PostLogin(w http.ResponseWriter, r *http.Request) {
 		Value:    credentials.Username,
 		Expires:  time.Now().Add(24 * time.Hour),
 		HttpOnly: false,
-		Secure:   true,
+		Secure:   false,
 		SameSite: http.SameSiteStrictMode,
 	})
 

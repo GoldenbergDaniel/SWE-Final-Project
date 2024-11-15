@@ -2,16 +2,17 @@
     import Footer from '../lib/Footer.svelte';
     import Header from '../lib/Header.svelte';
     import Background from '../lib/Background.svelte';
-    import { isAuthenticated } from '../assets/auth.js';
+    import { checkAuth} from '../assets/auth.js';
     import { onMount } from 'svelte';
     import { navigate } from "svelte-routing";
 
     onMount(() => {
-        if (!$isAuthenticated) {
+        if (!checkAuth()) {
             alert('Access Denied! Login Required');
             navigate('/');
         }
     });
+
 
     // Example data for the portfolio (this would usually come from an API or data store)
     let stocks = [
