@@ -11,11 +11,31 @@
             alert('Access Denied! Login Required');
             navigate('/');
         }
-    });
+    })
 
+    let userBalance = 0;
 
-    // Example user balance (this can be dynamically set)
-    let userBalance = 8500;
+    onMount(async () => {
+        try
+        {
+            const response = await fetch("http://localhost:5147/userdata", {
+                method: "GET",
+                credentials: "include",
+            })
+
+            if (!response.ok)
+            {
+                throw new Error("Failed to fetch user data")
+            }
+
+            const data = await response.json()
+            userBalance = data.balance
+        }
+        catch (error)
+        {
+            console.error("Error fetching user data: ", error)
+        }
+    })
 
     // Variables for handling input fields
     let ticker = '';
