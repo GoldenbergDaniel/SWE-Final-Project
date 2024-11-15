@@ -18,7 +18,7 @@
     onMount(async () => {
         try
         {
-            const response = await fetch("http://localhost:5147/userdata", {
+            const response = await fetch("http://localhost:5174/userdata", {
                 method: "GET",
                 credentials: "include",
             })
