@@ -264,8 +264,6 @@ func PostLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func Logout(w http.ResponseWriter, r *http.Request) {
-	// SetCors(w.Header())
-
 	// Clear the session cookie
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session_token",
@@ -275,6 +273,8 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 	})
+
+	fmt.Println("User log out request.")
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{

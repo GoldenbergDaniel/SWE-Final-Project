@@ -32,11 +32,9 @@
     }, 200);
   };
 
-  // Initialize the event listener when the component mounts
   onMount(() => {
     document.addEventListener('mousemove', handleMouseMove);
     
-    // Clean up the event listener when component unmounts
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
     };

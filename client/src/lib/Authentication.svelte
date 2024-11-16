@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
   import { navigate } from "svelte-routing";
-  import { isAuthenticated } from '../assets/auth.js';
+  import { isAuthenticated } from '../auth.js';
   
   interface SignUpData {
     first_name: string;

@@ -2,7 +2,7 @@
     import Footer from '../lib/Footer.svelte';
     import Header from '../lib/Header.svelte';
     import Background from '../lib/Background.svelte';
-    import { checkAuth } from '../assets/auth.js';
+    import { checkAuth } from '../auth.js';
     import { onMount } from 'svelte';
     import { navigate } from "svelte-routing";
 
@@ -37,24 +37,18 @@
         }
     })
 
-    // Variables for handling input fields
     let ticker = '';
-    let shareNumber = 0;  // Ensure it's initialized to 0
+    let shareNumber = 0;
     let rationale = '';
 
-    // Handle share number input validation
     function handleShareNumberInput(event) {
-        // Ensure the value is a positive number (no negative values allowed)
         if (shareNumber < 0) {
             shareNumber = 0;
         }
     }
 
-    // Handle "Place Order" button click
     function placeOrder() {
-        // Here, you'd typically add logic to process the order
         console.log("Order placed for:", ticker, shareNumber, rationale);
-        // Reset form fields (optional)
         ticker = '';
         shareNumber = 0;
         rationale = '';
@@ -122,7 +116,7 @@
     }
     /* Right side: Balance and Trade form */
     .trade {
-        flex: 0 0 35%; /* Trade section takes less space */
+        flex: 0 0 35%;
         min-width: 250px;
         padding: 20px;
         border: 1px solid #ddd;
@@ -181,7 +175,7 @@
     .place-order-btn {
         width: 100%;
         padding: 12px;
-        background-color: #4CAF50; /* Green */
+        background-color: #4CAF50;
         color: white;
         border: none;
         border-radius: 5px;

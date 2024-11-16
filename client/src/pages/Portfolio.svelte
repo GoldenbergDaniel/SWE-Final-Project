@@ -2,7 +2,7 @@
     import Footer from '../lib/Footer.svelte';
     import Header from '../lib/Header.svelte';
     import Background from '../lib/Background.svelte';
-    import { checkAuth } from '../assets/auth.js';
+    import { checkAuth } from '../auth.js';
     import { onMount } from 'svelte';
     import { navigate } from "svelte-routing";
 
@@ -13,20 +13,45 @@
         }
     });
 
-    // Example data for the portfolio (this would usually come from an API or data store)
     let stocks = [
         { ticker: 'AAPL', price: 175.43, quantity: 50, date: '2023-08-01' },
         { ticker: 'GOOGL', price: 2840.12, quantity: 20, date: '2023-07-15' },
         { ticker: 'AMZN', price: 3341.59, quantity: 10, date: '2023-06-20' },
         { ticker: 'TSLA', price: 755.87, quantity: 15, date: '2023-05-10' },
         { ticker: 'MSFT', price: 297.95, quantity: 30, date: '2023-04-12' }
-    ];
+    ]
 
-    // Example user data (replace this with dynamic data later)
     let user = {
         username: 'john_doe',
         email: 'johndoe@example.com'
-    };
+    }
+
+    async function makeLogoutRequest()
+    {
+        const response = await fetch("http://localhost:5174/logout", {
+            credentials: "include",
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: "",
+        })
+
+        const responseText = await response.text()
+        if (!response.ok)
+        {
+            throw new Error(responseText || "Logout failed!!!!!!!")
+        }
+
+        location.reload()
+
+        return responseText
+    }
+
+    function handleLogout()
+    {
+        makeLogoutRequest()
+    }
 </script>
 
 <main>
@@ -82,7 +107,7 @@
                         </tr>
                     </tbody>
                 </table>
-            <button class="logout">Logout</button>
+            <button class="logout" on:click={handleLogout}>Logout</button>
             </div>
         </div>
     </div>
@@ -98,12 +123,6 @@ button {
     background-color: red;
     color: black;
   }
-
-  .button-container {
-    display: flex;
-    justify-content: space-between;
-  }
-
 
     .content {
         margin-top: 96px;

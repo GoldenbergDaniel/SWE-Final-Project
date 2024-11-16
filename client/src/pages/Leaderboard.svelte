@@ -2,7 +2,7 @@
     import Footer from '../lib/Footer.svelte';
     import Header from '../lib/Header.svelte';
     import Background from '../lib/Background.svelte';
-    import { checkAuth} from '../assets/auth.js';
+    import { checkAuth} from '../auth.js';
     import { onMount } from 'svelte';
     import { navigate } from "svelte-routing";
 
@@ -13,8 +13,6 @@
         }
     });
 
-
-    // Example data for the leaderboard
     let tableData = [
         { username: 'user1', portfolioValue: 12000, gainLoss: 5 },
         { username: 'user2', portfolioValue: 9000, gainLoss: -3 },
@@ -73,13 +71,13 @@
     .dashboard {
         display: flex;
         justify-content: space-between;
-        gap: 20px; /* Space between the leaderboard and trade form */
+        gap: 20px;
     }
 
     /* Left side: Leaderboard */
     .leaderboard {
         flex: 1;
-        min-width: 45%; /* Ensure the leaderboard takes up less than half of the screen */
+        min-width: 45%;
     }
 
     .leaderboard h2 {
@@ -109,83 +107,5 @@
 
     .leaderboard tr:hover {
         background-color: #f1f1f1;
-    }
-
-    /* Right side: Balance and Trade form */
-    .trade {
-        flex: 0 0 35%; /* Trade section takes less space */
-        min-width: 250px;
-        padding: 20px;
-        border: 1px solid #ddd;
-        background-color: #f9f9f9;
-        border-radius: 8px;
-    }
-
-    .trade h2 {
-        text-align: center;
-        margin-bottom: 20px;
-    }
-
-    /* Balance table */
-    .trade table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 20px;
-    }
-
-    .trade th, .trade td {
-        padding: 10px;
-        text-align: center;
-        border: 1px solid #ddd;
-    }
-
-    .trade th {
-        background-color: #f4f4f4;
-        font-weight: bold;
-    }
-
-    .trade td {
-        font-size: 1.2em;
-    }
-
-    /* Input fields */
-    .input-field {
-        width: 100%;
-        padding: 10px;
-        margin-bottom: 15px;
-        border: 1px solid #ddd;
-        border-radius: 5px;
-        font-size: 16px;
-        box-sizing: border-box;
-    }
-
-    .input-field::placeholder {
-        color: #aaa;
-    }
-
-    .input-field:focus {
-        border-color: #4CAF50;
-        outline: none;
-    }
-
-    /* Place Order button */
-    .place-order-btn {
-        width: 100%;
-        padding: 12px;
-        background-color: #4CAF50; /* Green */
-        color: white;
-        border: none;
-        border-radius: 5px;
-        font-size: 16px;
-        cursor: pointer;
-        transition: background-color 0.3s;
-    }
-
-    .place-order-btn:hover {
-        background-color: #45a049;
-    }
-
-    .place-order-btn:active {
-        background-color: #3e8e41;
     }
 </style>
