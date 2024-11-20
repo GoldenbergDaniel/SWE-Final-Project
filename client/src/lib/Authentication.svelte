@@ -239,7 +239,7 @@
   }
 
   .error-message {
-    color: red;
+    color: #c3112c;
     font-size: 0.9em;
     margin-top: 0.5em;
   }

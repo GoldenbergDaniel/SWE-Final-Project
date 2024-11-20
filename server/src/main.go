@@ -94,7 +94,7 @@ func GetUserData(w http.ResponseWriter, r *http.Request) {
 	var balance int
 	err = db.QueryRow("SELECT balance FROM users WHERE username = ?", cookie.Value).Scan(&balance)
 	if err != nil {
-		fmt.Println("User not found!")
+		fmt.Println("Username or Password Incorrect!")
 		return
 	}
 
@@ -234,14 +234,14 @@ func PostLogin(w http.ResponseWriter, r *http.Request) {
 	err := db.QueryRow("SELECT password FROM users WHERE username = ?", credentials.Username).Scan(&hashedPassword)
 	if err != nil {
 		fmt.Printf("Database query error: %v", err)
-		http.Error(w, "User not found", http.StatusUnauthorized)
+		http.Error(w, "Username or Password Incorrect", http.StatusUnauthorized)
 		return
 	}
 
 	// Compare the provided password with the stored hashed password
 	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(credentials.Password)); err != nil {
 		fmt.Printf("Password comparison error: %v", err)
-		http.Error(w, "Incorrect password", http.StatusUnauthorized)
+		http.Error(w, "Username or Password Incorrect", http.StatusUnauthorized)
 		return
 	}
 

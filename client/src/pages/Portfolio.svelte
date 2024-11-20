@@ -107,7 +107,7 @@
                         </tr>
                     </tbody>
                 </table>
-            <button class="logout" on:click={handleLogout}>Logout</button>
+            <!--<button class="logout" on:click={handleLogout}>Logout</button>-->
             </div>
         </div>
     </div>

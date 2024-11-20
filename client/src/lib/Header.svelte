@@ -44,6 +44,34 @@
     }
 
     window.addEventListener('resize', handleResize);
+
+    async function makeLogoutRequest()
+    {
+        const response = await fetch("http://localhost:5174/logout", {
+            credentials: "include",
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: "",
+        })
+
+        const responseText = await response.text()
+        if (!response.ok)
+        {
+            throw new Error(responseText || "Logout failed!!!!!!!")
+        }
+
+        location.reload()
+
+        return responseText
+    }
+
+    function handleLogout()
+    {
+        makeLogoutRequest()
+    }
+
 </script>
 
 <main>
@@ -64,8 +92,11 @@
                 <li class="nav-item">
                     <Link to="/posts" class="nav-link">Posts</Link>
                 </li>
-                <li class="nav-item spaced-nav-item">
+                <li class="nav-item">
                     <Link to="/leaderboard" class="nav-link">Leaderboard</Link>
+                </li>
+                <li class="nav-item spaced-nav-item">
+                    <button type="button" class="nav-link" on:click={handleLogout} aria-label="Logout">Logout</button>
                 </li>
             </ul>
             <button 
@@ -134,6 +165,15 @@
         position: relative;
     }
 
+    .nav-item button {
+        color: rgb(229, 228, 217);
+        background-color:rgba(59, 47, 47, 0.87);
+    }
+
+    .nav-item button:hover{
+        color: #c3112c;
+    }
+
     button{
         background-color: rgb(229, 228, 217);
     }
@@ -170,7 +210,7 @@
         background-color: #4CAF50;
     }
 
-    @media (max-width: 800px) {
+    @media (max-width: 850px) {
         .hamburger-menu {
             display: block;
             margin-right: 10px;
@@ -205,6 +245,15 @@
 
         .nav-item {
             margin: 16px 0;
+        }
+
+        .nav-item button{
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 20px;
+            color: rgb(229, 228, 217);
+            padding: 0px;
         }
 
         .nav-menu.active {
