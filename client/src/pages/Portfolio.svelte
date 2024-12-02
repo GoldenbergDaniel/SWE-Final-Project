@@ -6,51 +6,45 @@
     import { onMount } from 'svelte';
     import { navigate } from "svelte-routing";
 
-    onMount(() => {
+    let portfolioData = null;
+    let isLoading = true;
+
+    onMount(async () => {
         if (!checkAuth()) {
             alert('Access Denied! Login Required');
             navigate('/');
+        } else {
+            await fetchPortfolioData();
         }
     });
 
-    let stocks = [
-        { ticker: 'AAPL', price: 175.43, quantity: 50, date: '2023-08-01' },
-        { ticker: 'GOOGL', price: 2840.12, quantity: 20, date: '2023-07-15' },
-        { ticker: 'AMZN', price: 3341.59, quantity: 10, date: '2023-06-20' },
-        { ticker: 'TSLA', price: 755.87, quantity: 15, date: '2023-05-10' },
-        { ticker: 'MSFT', price: 297.95, quantity: 30, date: '2023-04-12' }
-    ]
+    async function fetchPortfolioData() {
+        try {
+            const response = await fetch("http://localhost:5174/portfolio-value", {
+                method: "GET",
+                credentials: "include",
+            });
 
-    let user = {
-        username: 'john_doe',
-        email: 'johndoe@example.com'
-    }
+            console.log("Response status:", response.status);
+            console.log("Response headers:", response.headers);
 
-    async function makeLogoutRequest()
-    {
-        const response = await fetch("http://localhost:5174/logout", {
-            credentials: "include",
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: "",
-        })
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error("Error response:", errorText);
+                throw new Error(`Failed to fetch portfolio data: ${response.status} ${response.statusText}`);
+            }
 
-        const responseText = await response.text()
-        if (!response.ok)
-        {
-            throw new Error(responseText || "Logout failed!!!!!!!")
+            portfolioData = await response.json();
+            console.log("Received portfolio data:", portfolioData);
+        } catch (error) {
+            console.error("Error fetching portfolio data:", error);
+        } finally {
+            isLoading = false;
         }
-
-        location.reload()
-
-        return responseText
     }
 
-    function handleLogout()
-    {
-        makeLogoutRequest()
+    function formatCurrency(value) {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
     }
 </script>
 
@@ -60,70 +54,77 @@
     <div class="content">
         <h1>Portfolio Page</h1>
 
-        <div class="tables">
-            <!-- Stock data table -->
-            <div class="table-container">
-                <h2>Stock Portfolio</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Ticker</th>
-                            <th>Price</th>
-                            <th>Quantity</th>
-                            <th>Date</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {#each stocks as { ticker, price, quantity, date }}
+        {#if isLoading}
+            <p>Loading portfolio data...</p>
+        {:else if portfolioData}
+            <div class="tables">
+                <!-- Stock data table -->
+                <div class="table-container">
+                    <h2>Stock Portfolio</h2>
+                    <table>
+                        <thead>
                             <tr>
-                                <td>{ticker}</td>
-                                <td>${price.toFixed(2)}</td> <!-- Format the price to two decimal places -->
-                                <td>{quantity}</td>
-                                <td>{date}</td>
+                                <th>Ticker</th>
+                                <th>Current Price</th>
+                                <th>Quantity</th>
+                                <th>Value</th>
+                                <th>Avg. Price</th>
+                                <th>Profit/Loss</th>
                             </tr>
-                        {/each}
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody>
+                            {#each Object.entries(portfolioData.portfolio) as [ticker, stock]}
+                                <tr>
+                                    <td>{ticker}</td>
+                                    <td>{formatCurrency(stock.currentPrice)}</td>
+                                    <td>{stock.quantity}</td>
+                                    <td>{formatCurrency(stock.currentValue)}</td>
+                                    <td>{formatCurrency(stock.averagePrice)}</td>
+                                    <td class={stock.profitLoss >= 0 ? 'profit' : 'loss'}>
+                                        {formatCurrency(stock.profitLoss)}
+                                    </td>
+                                </tr>
+                            {/each}
+                        </tbody>
+                    </table>
+                    <p><strong>Total Portfolio Value: {formatCurrency(portfolioData.totalValue)}</strong></p>
+                </div>
 
-            <!-- User data table -->
-            <div class="table-container">
-                <h2>User Information</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Field</th>
-                            <th>Value</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Username</td>
-                            <td>{user.username}</td>
-                        </tr>
-                        <tr>
-                            <td>Email</td>
-                            <td>{user.email}</td>
-                        </tr>
-                    </tbody>
-                </table>
-            <!--<button class="logout" on:click={handleLogout}>Logout</button>-->
+                <!-- User data table -->
+                <div class="table-container">
+                    <h2>User Information</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Username</td>
+                                <td>{portfolioData.username}</td>
+                            </tr>
+                            <tr>
+                                <td>Email</td>
+                                <td>{portfolioData.email}</td>
+                            </tr>
+                            <tr>
+                                <td>Cash Balance</td>
+                                <td>{formatCurrency(portfolioData.balance)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </div>
+        {:else}
+            <p>Failed to load portfolio data. Please try again later.</p>
+        {/if}
     </div>
     <Footer />
 </main>
 
 <style>
-
-button {
-    padding: 0.7em 1.2em;
-    font-size: 1em;
-    margin: 2em 0;
-    background-color: red;
-    color: black;
-  }
-
     .content {
         margin-top: 96px;
         padding: 20px;
@@ -132,11 +133,11 @@ button {
     .tables {
         display: flex;
         justify-content: space-between;
-        gap: 40px; /* Adjust the gap between tables */
+        gap: 60px;
     }
 
     .table-container {
-        width: 48%; /* Each table will take up roughly half the space */
+        width: 35%;
     }
 
     table {
@@ -162,5 +163,13 @@ button {
 
     tr:hover {
         background-color: #f1f1f1;
+    }
+
+    .profit {
+        color: green;
+    }
+
+    .loss {
+        color: red;
     }
 </style>

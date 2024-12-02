@@ -210,7 +210,7 @@
         background-color: #4CAF50;
     }
 
-    @media (max-width: 850px) {
+    @media (max-width: 950px) {
         .hamburger-menu {
             display: block;
             margin-right: 10px;

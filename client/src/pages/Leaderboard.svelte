@@ -2,55 +2,64 @@
     import Footer from '../lib/Footer.svelte';
     import Header from '../lib/Header.svelte';
     import Background from '../lib/Background.svelte';
-    import { checkAuth} from '../auth.js';
+    import { checkAuth } from '../auth.js';
     import { onMount } from 'svelte';
     import { navigate } from "svelte-routing";
 
-    onMount(() => {
+    let leaderboardData = [];
+
+    onMount(async () => {
         if (!checkAuth()) {
             alert('Access Denied! Login Required');
             navigate('/');
+        } else {
+            await fetchLeaderboardData();
         }
     });
 
-    let tableData = [
-        { username: 'user1', portfolioValue: 12000, gainLoss: 5 },
-        { username: 'user2', portfolioValue: 9000, gainLoss: -3 },
-        { username: 'user3', portfolioValue: 15000, gainLoss: 8 },
-        { username: 'user4', portfolioValue: 7000, gainLoss: -2 },
-        { username: 'user5', portfolioValue: 12000, gainLoss: 4 },
-        { username: 'user6', portfolioValue: 8000, gainLoss: 6 },
-        { username: 'user7', portfolioValue: 10000, gainLoss: 2 },
-        { username: 'user8', portfolioValue: 11000, gainLoss: -1 },
-        { username: 'user9', portfolioValue: 13000, gainLoss: 7 },
-        { username: 'user10', portfolioValue: 14000, gainLoss: 3 }
-    ];
+    async function fetchLeaderboardData() {
+        try {
+            const response = await fetch("http://localhost:5174/leaderboard", {
+                method: "GET",
+                credentials: "include",
+            });
 
+            if (!response.ok) {
+                throw new Error("Failed to fetch leaderboard data");
+            }
+
+            leaderboardData = await response.json();
+        } catch (error) {
+            console.error("Error fetching leaderboard data:", error);
+        }
+    }
 </script>
 
 <main>
     <Background />
     <Header />
     <div class="content">
-        <!-- Flexbox container for layout -->
         <div class="dashboard">
-            <!-- Left side: Leaderboard -->
             <div class="leaderboard">
                 <h2>Leaderboard</h2>
                 <table>
                     <thead>
                         <tr>
+                            <th>Rank</th>
                             <th>Username</th>
                             <th>Portfolio Value</th>
                             <th>% Gain/Loss</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {#each tableData as { username, portfolioValue, gainLoss }}
+                        {#each leaderboardData as { username, portfolioValue, gainLoss }, index}
                             <tr>
+                                <td>{index + 1}</td>
                                 <td>{username}</td>
-                                <td>${portfolioValue}</td>
-                                <td>{gainLoss}%</td>
+                                <td>${portfolioValue.toFixed(2)}</td>
+                                <td class={gainLoss >= 0 ? 'positive' : 'negative'}>
+                                    {gainLoss.toFixed(2)}%
+                                </td>
                             </tr>
                         {/each}
                     </tbody>
@@ -107,5 +116,13 @@
 
     .leaderboard tr:hover {
         background-color: #f1f1f1;
+    }
+    
+    .positive {
+        color: green;
+    }
+
+    .negative {
+        color: red;
     }
 </style>

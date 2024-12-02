@@ -6,40 +6,38 @@
     import { onMount } from 'svelte';
     import { navigate } from "svelte-routing";
 
-    onMount(() => {
+    let userBalance = 0;
+    let ticker = '';
+    let shareNumber = 0;
+    let tradeType = 'buy';
+    let rationale = '';
+
+    onMount(async () => {
         if (!checkAuth()) {
             alert('Access Denied! Login Required');
             navigate('/');
+        } else {
+            await fetchUserData();
         }
-    })
+    });
 
-    let userBalance = 0;
-
-    onMount(async () => {
-        try
-        {
+    async function fetchUserData() {
+        try {
             const response = await fetch("http://localhost:5174/userdata", {
                 method: "GET",
                 credentials: "include",
-            })
+            });
 
-            if (!response.ok)
-            {
-                throw new Error("Failed to fetch user data")
+            if (!response.ok) {
+                throw new Error("Failed to fetch user data");
             }
 
-            const data = await response.json()
-            userBalance = data.balance
+            const data = await response.json();
+            userBalance = data.balance;
+        } catch (error) {
+            console.error("Error fetching user data: ", error);
         }
-        catch (error)
-        {
-            console.error("Error fetching user data: ", error)
-        }
-    })
-
-    let ticker = '';
-    let shareNumber = 0;
-    let rationale = '';
+    }
 
     function handleShareNumberInput(event) {
         if (shareNumber < 0) {
@@ -47,13 +45,42 @@
         }
     }
 
-    function placeOrder() {
-        console.log("Order placed for:", ticker, shareNumber, rationale);
-        ticker = '';
-        shareNumber = 0;
-        rationale = '';
-    }
+    async function placeOrder() {
+        try {
+            const response = await fetch("http://localhost:5174/trade", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    symbol: ticker,
+                    quantity: shareNumber,
+                    trade_type: tradeType,
+                    rationale: rationale
+                }),
+                credentials: "include",
+            });
 
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Failed to place order");
+            }
+
+            const data = await response.json();
+            alert(data.message);
+
+            // Update user balance
+            userBalance = data.new_balance;
+
+            // Reset form fields
+            ticker = '';
+            shareNumber = 0;
+            rationale = '';
+
+        } catch (error) {
+            console.error("Error placing order:", error);
+            alert(error.message); }
+    }
 </script>
 
 <main>
@@ -62,7 +89,6 @@
     <div class="content">
         <h1>Trade Page</h1>
     </div>
-    <!-- Right side: Balance and Trade form -->
     <div class="trade">
         <h2>Your Balance</h2>
         <table>
@@ -73,21 +99,19 @@
             </thead>
             <tbody>
                 <tr>
-                    <td>${userBalance}</td>
+                    <td>${userBalance.toFixed(2)}</td>
                 </tr>
             </tbody>
         </table>
 
         <h2>Make a Trade</h2>
         <form>
-            <!-- Ticker input -->
             <input
                 type="text"
                 placeholder="TICKER"
                 bind:value={ticker}
                 class="input-field"
             />
-            <!-- Share Number input -->
             <input
                 type="number"
                 placeholder="Share Number"
@@ -96,14 +120,16 @@
                 on:input={handleShareNumberInput}
                 class="input-field"
             />
-            <!-- Rationale input -->
+            <select bind:value={tradeType} class="input-field">
+                <option value="buy">Buy</option>
+                <option value="sell">Sell</option>
+            </select>
             <input
                 type="text"
                 placeholder="Rationale"
                 bind:value={rationale}
                 class="input-field"
             />
-            <!-- Place Order button -->
             <button type="button" on:click={placeOrder} class="place-order-btn">Place Order</button>
         </form>
     </div>
@@ -190,5 +216,12 @@
 
     .place-order-btn:active {
         background-color: #3e8e41;
+    }
+    select.input-field {
+        appearance: none;
+        background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23007CB2%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.7em top 50%;
+        background-size: 0.65em auto;
     }
 </style>

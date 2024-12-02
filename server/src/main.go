@@ -4,20 +4,36 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net/http"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/robfig/cron/v3"
 	"github.com/rs/cors"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var db *sql.DB
+var stockCache map[string]StockPrice
 
-// Initialize the database connection and create the users table if it doesn't exist
+type StockPrice struct {
+	Symbol string  `json:"symbol"`
+	Price  float64 `json:"price"`
+	Time   string  `json:"time"`
+}
+
+func getCookieValue(r *http.Request, cookieName string) string {
+	cookie, err := r.Cookie(cookieName)
+	if err != nil {
+		return ""
+	}
+	return cookie.Value
+}
+
 func initDB() {
 	var err error
 	db, err = sql.Open("sqlite3", "./data.db")
@@ -29,27 +45,90 @@ func initDB() {
 		fmt.Println("Failed to ping database:", err)
 	}
 
-	// Create the users table if it doesn't exist
+	// Create the users table
 	_, err = db.Exec(`
-			CREATE TABLE IF NOT EXISTS users (
-					id INTEGER PRIMARY KEY AUTOINCREMENT,
-					first_name TEXT NOT NULL,
-					last_name TEXT NOT NULL,
-					email TEXT UNIQUE NOT NULL,
-					username TEXT UNIQUE NOT NULL,
-					password TEXT NOT NULL,
-					balance INTEGER NOT NULL
-			)
+		CREATE TABLE IF NOT EXISTS users (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			first_name TEXT NOT NULL,
+			last_name TEXT NOT NULL,
+			email TEXT UNIQUE NOT NULL,
+			username TEXT UNIQUE NOT NULL,
+			password TEXT NOT NULL,
+			balance REAL NOT NULL
+		)
 	`)
 	if err != nil {
 		fmt.Println("Error creating users table:", err)
 	}
-	fmt.Println("Connected to database and ensured users table exists.")
+
+	// Create the trades table
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS trades (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			symbol TEXT NOT NULL,
+			quantity INTEGER NOT NULL,
+			price REAL NOT NULL,
+			trade_type TEXT NOT NULL,
+			trade_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id)
+		)
+	`)
+	if err != nil {
+		fmt.Println("Error creating trades table:", err)
+	}
+
+	// Create the portfolio table
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS portfolio (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			symbol TEXT NOT NULL,
+			quantity INTEGER NOT NULL,
+			average_price REAL NOT NULL,
+			FOREIGN KEY (user_id) REFERENCES users(id),
+			UNIQUE(user_id, symbol)
+		)
+	`)
+	if err != nil {
+		fmt.Println("Error creating portfolio table:", err)
+	}
+
+	// Create the historical_prices table
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS likes (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			trade_id INTEGER NOT NULL,
+			FOREIGN KEY (user_id) REFERENCES users(id),
+			FOREIGN KEY (trade_id) REFERENCES trades(id),
+			UNIQUE(user_id, trade_id)
+		)
+	`)
+	if err != nil {
+		fmt.Println("Error creating likes table:", err)
+	}
+
+	_, err = db.Exec(`
+        CREATE TABLE IF NOT EXISTS daily_stock_prices (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            symbol TEXT NOT NULL,
+            price REAL NOT NULL,
+            updated_at DATETIME NOT NULL,
+            UNIQUE(symbol, updated_at)
+        )
+    `)
+	if err != nil {
+		fmt.Println("Error creating daily_stock_prices table:", err)
+	}
+	fmt.Println("Connected to database and ensured all tables exist.")
 }
 
 func main() {
 	initDB()
 	defer db.Close()
+
+	stockCache = make(map[string]StockPrice)
 
 	r := mux.NewRouter()
 
@@ -59,6 +138,13 @@ func main() {
 	r.HandleFunc("/logout", Logout).Methods("POST")
 	r.HandleFunc("/protected", AuthMiddleware(ProtectedHandler)).Methods("GET")
 	r.HandleFunc("/userdata", GetUserData).Methods("GET")
+	r.HandleFunc("/stock-price", GetStockPrice).Methods("GET")
+	r.HandleFunc("/trade", AuthMiddleware(MakeTrade)).Methods("POST")
+	r.HandleFunc("/portfolio-value", AuthMiddleware(GetPortfolioValue)).Methods("GET")
+	r.HandleFunc("/historical-prices", AuthMiddleware(GetHistoricalPrices)).Methods("GET")
+	r.HandleFunc("/posts", AuthMiddleware(GetRecentTrades)).Methods("GET")
+	r.HandleFunc("/leaderboard", AuthMiddleware(GetLeaderboard)).Methods("GET")
+	r.HandleFunc("/like/{id}", AuthMiddleware(ToggleLike)).Methods("POST")
 
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:5173"},
@@ -68,7 +154,152 @@ func main() {
 	})
 
 	handler := c.Handler(r)
+
+	// Start the stock price update job
+	startStockPriceUpdateJob()
+
+	createDailyStockPricesTable()
+
 	fmt.Println(http.ListenAndServe(":5174", handler))
+}
+
+func startStockPriceUpdateJob() {
+	c := cron.New()
+	c.AddFunc("0 9 * * *", updateDailyStockPrices) // Run every day at 9:00 AM
+	c.Start()
+}
+
+func createDailyStockPricesTable() {
+	_, err := db.Exec(`
+        CREATE TABLE IF NOT EXISTS daily_stock_prices (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            symbol TEXT NOT NULL,
+            price REAL NOT NULL,
+            updated_at DATETIME NOT NULL,
+            UNIQUE(symbol, updated_at)
+        )
+    `)
+	if err != nil {
+		fmt.Println("Error creating daily_stock_prices table:", err)
+	}
+}
+
+func updateDailyStockPrices() {
+	fmt.Printf("Updating daily stock prices at %s\n", time.Now().Format(time.RFC3339))
+
+	symbols, err := getUniqueSymbolsInPortfolios()
+	if err != nil {
+		fmt.Println("Error getting unique symbols:", err)
+		return
+	}
+
+	for _, symbol := range symbols {
+		price, err := fetchStockPrice(symbol)
+		if err != nil {
+			fmt.Printf("Error fetching price for %s: %v\n", symbol, err)
+			continue
+		}
+
+		_, err = db.Exec(`
+            INSERT INTO daily_stock_prices (symbol, price, updated_at)
+            VALUES (?, ?, datetime('now'))
+        `, symbol, price)
+		if err != nil {
+			fmt.Printf("Error storing daily price for %s: %v\n", symbol, err)
+		} else {
+			fmt.Printf("Updated daily price for %s: $%.2f\n", symbol, price)
+		}
+	}
+
+	fmt.Println("Daily stock price update completed")
+}
+
+func updateStockPrices() {
+	fmt.Printf("Updating stock prices at %s\n", time.Now().Format(time.RFC3339))
+
+	symbols, err := getUniqueSymbolsInPortfolios()
+	if err != nil {
+		fmt.Println("Error getting unique symbols:", err)
+		return
+	}
+
+	for _, symbol := range symbols {
+		price, err := fetchStockPrice(symbol)
+		if err != nil {
+			fmt.Printf("Error updating price for %s: %v\n", symbol, err)
+			continue
+		}
+
+		// Update the stockCache
+		stockCache[symbol] = StockPrice{
+			Symbol: symbol,
+			Price:  price,
+			Time:   time.Now().Format(time.RFC3339),
+		}
+
+		// Store historical price
+		_, err = db.Exec(`
+			INSERT OR REPLACE INTO historical_prices (symbol, price, date)
+			VALUES (?, ?, date('now'))
+		`, symbol, price)
+		if err != nil {
+			fmt.Printf("Error storing historical price for %s: %v\n", symbol, err)
+		}
+
+		fmt.Printf("Updated price for %s: $%.2f\n", symbol, price)
+	}
+
+	fmt.Println("Stock price update completed")
+}
+
+func getUniqueSymbolsInPortfolios() ([]string, error) {
+	rows, err := db.Query("SELECT DISTINCT symbol FROM portfolio")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var symbols []string
+	for rows.Next() {
+		var symbol string
+		if err := rows.Scan(&symbol); err != nil {
+			return nil, err
+		}
+		symbols = append(symbols, symbol)
+	}
+
+	return symbols, nil
+}
+
+func fetchStockPrice(symbol string) (float64, error) {
+	apiKey := "J585VGMES541XQW2"
+	url := fmt.Sprintf("https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=%s&apikey=%s", symbol, apiKey)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return 0, err
+	}
+
+	var result map[string]interface{}
+	json.Unmarshal(body, &result)
+
+	globalQuote, ok := result["Global Quote"].(map[string]interface{})
+	if !ok {
+		return 0, fmt.Errorf("invalid response from API")
+	}
+
+	price, err := strconv.ParseFloat(globalQuote["05. price"].(string), 64)
+	if err != nil {
+		return 0, err
+	}
+
+	return price, nil
 }
 
 func IsEmailValid(email string) bool {
@@ -77,37 +308,29 @@ func IsEmailValid(email string) bool {
 	return re.MatchString(email)
 }
 
-func PreflightHandler(w http.ResponseWriter, r *http.Request) {
-	// SetCors(w.Header())
-	w.WriteHeader(http.StatusOK)
-}
-
 func GetUserData(w http.ResponseWriter, r *http.Request) {
-	// SetCors(w.Header())
-
 	cookie, err := r.Cookie("session_token")
 	if err != nil {
 		fmt.Println("Error! No cookie provided.")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	var balance int
+	var balance float64
 	err = db.QueryRow("SELECT balance FROM users WHERE username = ?", cookie.Value).Scan(&balance)
 	if err != nil {
 		fmt.Println("Username or Password Incorrect!")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]int{
+	json.NewEncoder(w).Encode(map[string]float64{
 		"balance": balance,
 	})
 }
 
 func PostSignup(w http.ResponseWriter, r *http.Request) {
-	// SetCors(w.Header())
-	fmt.Printf("Content-Type: %s", r.Header.Get("Content-Type"))
-
 	var credentials struct {
 		FirstName string `json:"first_name"`
 		LastName  string `json:"last_name"`
@@ -116,19 +339,7 @@ func PostSignup(w http.ResponseWriter, r *http.Request) {
 		Password  string `json:"password"`
 	}
 
-	// Read the body
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		fmt.Printf("Error reading body: %v", err)
-		http.Error(w, "Error reading request body", http.StatusBadRequest)
-		return
-	}
-
-	fmt.Printf("Received body: %s", string(body))
-
-	// Decode the JSON
-	if err := json.Unmarshal(body, &credentials); err != nil {
-		fmt.Printf("JSON decode error: %v", err)
+	if err := json.NewDecoder(r.Body).Decode(&credentials); err != nil {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
@@ -151,9 +362,8 @@ func PostSignup(w http.ResponseWriter, r *http.Request) {
 
 	// Check for existing email
 	var exists int
-	err = db.QueryRow("SELECT COUNT(*) FROM users WHERE email = ?", credentials.Email).Scan(&exists)
+	err := db.QueryRow("SELECT COUNT(*) FROM users WHERE email = ?", credentials.Email).Scan(&exists)
 	if err != nil {
-		fmt.Printf("Database query error: %v", err)
 		http.Error(w, "Error checking email", http.StatusInternalServerError)
 		return
 	}
@@ -170,7 +380,6 @@ func PostSignup(w http.ResponseWriter, r *http.Request) {
 	// Check for existing username
 	err = db.QueryRow("SELECT COUNT(*) FROM users WHERE username = ?", credentials.Username).Scan(&exists)
 	if err != nil {
-		fmt.Printf("Database query error: %v", err)
 		http.Error(w, "Error checking username", http.StatusInternalServerError)
 		return
 	}
@@ -184,29 +393,26 @@ func PostSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Hash the password for secure storage
+	// Hash the password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(credentials.Password), bcrypt.DefaultCost)
 	if err != nil {
-		fmt.Printf("Password hashing error: %v", err)
 		http.Error(w, "Failed to hash password", http.StatusInternalServerError)
 		return
 	}
 
 	// Insert the user into the database
 	result, err := db.Exec(`
-        INSERT INTO users (first_name, last_name, email, username, password, balance)
-        VALUES (?, ?, ?, ?, ?, ?)
-    `, credentials.FirstName, credentials.LastName, credentials.Email, credentials.Username, string(hashedPassword), 10000)
+		INSERT INTO users (first_name, last_name, email, username, password, balance)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, credentials.FirstName, credentials.LastName, credentials.Email, credentials.Username, string(hashedPassword), 10000.0)
 
 	if err != nil {
-		fmt.Printf("Database insert error: %v", err)
 		http.Error(w, "Failed to insert user", http.StatusInternalServerError)
 		return
 	}
 
 	id, _ := result.LastInsertId()
 
-	// Send JSON response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -216,36 +422,28 @@ func PostSignup(w http.ResponseWriter, r *http.Request) {
 }
 
 func PostLogin(w http.ResponseWriter, r *http.Request) {
-	// SetCors(w.Header())
-
 	var credentials struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&credentials); err != nil {
-		fmt.Printf("JSON decode error: %v", err)
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
 
-	// Retrieve the hashed password from the database
 	var hashedPassword string
 	err := db.QueryRow("SELECT password FROM users WHERE username = ?", credentials.Username).Scan(&hashedPassword)
 	if err != nil {
-		fmt.Printf("Database query error: %v", err)
 		http.Error(w, "Username or Password Incorrect", http.StatusUnauthorized)
 		return
 	}
 
-	// Compare the provided password with the stored hashed password
 	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(credentials.Password)); err != nil {
-		fmt.Printf("Password comparison error: %v", err)
 		http.Error(w, "Username or Password Incorrect", http.StatusUnauthorized)
 		return
 	}
 
-	// Create a session cookie
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session_token",
 		Value:    credentials.Username,
@@ -255,7 +453,6 @@ func PostLogin(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 	})
 
-	// Send JSON response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
@@ -264,7 +461,6 @@ func PostLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func Logout(w http.ResponseWriter, r *http.Request) {
-	// Clear the session cookie
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session_token",
 		Value:    "",
@@ -274,8 +470,6 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 	})
 
-	fmt.Println("User log out request.")
-
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": "Logged out successfully",
@@ -284,8 +478,6 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 
 func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// SetCors(w.Header())
-
 		cookie, err := r.Cookie("session_token")
 		if err != nil {
 			if err == http.ErrNoCookie {
@@ -296,7 +488,6 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		// Check if cookie exists
 		if cookie.Value == "" {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
@@ -313,9 +504,455 @@ func ProtectedHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// func SetCors(header http.Header) {
-// 	header.Set("Access-Control-Allow-Origin", "http://localhost:5173")
-// 	header.Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-// 	header.Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-// 	header.Set("Access-Control-Allow-Credentials", "true")
-// }
+func GetStockPrice(w http.ResponseWriter, r *http.Request) {
+	symbol := r.URL.Query().Get("symbol")
+	if symbol == "" {
+		http.Error(w, "Symbol is required", http.StatusBadRequest)
+		return
+	}
+
+	if cachedPrice, ok := stockCache[symbol]; ok {
+		parsedTime, err := time.Parse(time.RFC3339, cachedPrice.Time)
+		if err == nil && time.Since(parsedTime) < 5*time.Minute {
+			json.NewEncoder(w).Encode(cachedPrice)
+			return
+		}
+	}
+
+	price, err := fetchStockPrice(symbol)
+	if err != nil {
+		http.Error(w, "Failed to fetch stock price", http.StatusInternalServerError)
+		return
+	}
+
+	// currentTime := time.Now().Format(time.RFC3339)
+	stockPrice := StockPrice{
+		Symbol: symbol,
+		Price:  price,
+		Time:   time.Now().Format(time.RFC3339)}
+
+	stockCache[symbol] = stockPrice
+
+	json.NewEncoder(w).Encode(stockPrice)
+}
+
+func MakeTrade(w http.ResponseWriter, r *http.Request) {
+	var tradeReq struct {
+		Symbol    string `json:"symbol"`
+		Quantity  int    `json:"quantity"`
+		TradeType string `json:"trade_type"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&tradeReq); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	if tradeReq.Quantity <= 0 {
+		http.Error(w, "Quantity must be greater than 0", http.StatusBadRequest)
+		return
+	}
+
+	cookie, _ := r.Cookie("session_token")
+	username := cookie.Value
+
+	stockPrice, err := fetchStockPrice(tradeReq.Symbol)
+	if err != nil {
+		http.Error(w, "Failed to get stock price", http.StatusInternalServerError)
+		return
+	}
+
+	totalCost := float64(tradeReq.Quantity) * stockPrice
+
+	var balance float64
+	err = db.QueryRow("SELECT balance FROM users WHERE username = ?", username).Scan(&balance)
+	if err != nil {
+		http.Error(w, "Failed to get user balance", http.StatusInternalServerError)
+		return
+	}
+
+	if tradeReq.TradeType == "buy" && balance < totalCost {
+		http.Error(w, "Insufficient balance", http.StatusBadRequest)
+		return
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		http.Error(w, "Failed to start transaction", http.StatusInternalServerError)
+		return
+	}
+
+	var newBalance float64
+	if tradeReq.TradeType == "buy" {
+		newBalance = balance - totalCost
+	} else {
+		newBalance = balance + totalCost
+	}
+
+	_, err = tx.Exec("UPDATE users SET balance = ? WHERE username = ?", newBalance, username)
+	if err != nil {
+		tx.Rollback()
+		http.Error(w, "Failed to update balance", http.StatusInternalServerError)
+		return
+	}
+
+	var userId int
+	err = tx.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&userId)
+	if err != nil {
+		tx.Rollback()
+		http.Error(w, "Failed to get user ID", http.StatusInternalServerError)
+		return
+	}
+
+	_, err = tx.Exec(`
+		INSERT INTO trades (user_id, symbol, quantity, price, trade_type)
+		VALUES (?, ?, ?, ?, ?)
+	`, userId, tradeReq.Symbol, tradeReq.Quantity, stockPrice, tradeReq.TradeType)
+	if err != nil {
+		tx.Rollback()
+		http.Error(w, "Failed to record trade", http.StatusInternalServerError)
+		return
+	}
+
+	var currentQuantity int
+	err = tx.QueryRow("SELECT quantity FROM portfolio WHERE user_id = ? AND symbol = ?", userId, tradeReq.Symbol).Scan(&currentQuantity)
+	if err != nil && err != sql.ErrNoRows {
+		tx.Rollback()
+		http.Error(w, "Failed to get current portfolio quantity", http.StatusInternalServerError)
+		return
+	}
+
+	var newQuantity int
+	if tradeReq.TradeType == "buy" {
+		newQuantity = currentQuantity + tradeReq.Quantity
+	} else {
+		newQuantity = currentQuantity - tradeReq.Quantity
+	}
+
+	if newQuantity < 0 {
+		tx.Rollback()
+		http.Error(w, "Insufficient shares to sell", http.StatusBadRequest)
+		return
+	}
+
+	if newQuantity == 0 {
+		_, err = tx.Exec("DELETE FROM portfolio WHERE user_id = ? AND symbol = ?", userId, tradeReq.Symbol)
+	} else {
+		_, err = tx.Exec(`
+			INSERT OR REPLACE INTO portfolio (user_id, symbol, quantity, average_price)
+			VALUES (?, ?, ?, (SELECT COALESCE(
+				(SELECT (average_price * quantity + ? * ?) / (quantity + ?)
+				FROM portfolio WHERE user_id = ? AND symbol = ?),
+				?
+			)))
+		`, userId, tradeReq.Symbol, newQuantity, tradeReq.Quantity, stockPrice, tradeReq.Quantity, userId, tradeReq.Symbol, stockPrice)
+	}
+
+	if err != nil {
+		tx.Rollback()
+		http.Error(w, "Failed to update portfolio", http.StatusInternalServerError)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		http.Error(w, "Failed to commit transaction", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message":     "Trade successful",
+		"new_balance": newBalance,
+	})
+}
+
+func GetPortfolioValue(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("session_token")
+	if err != nil {
+		fmt.Println("Error getting session cookie:", err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	username := cookie.Value
+
+	var userId int
+	var email string
+	var balance float64
+	err = db.QueryRow("SELECT id, email, balance FROM users WHERE username = ?", username).Scan(&userId, &email, &balance)
+	if err != nil {
+		fmt.Println("Error querying user data:", err)
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	rows, err := db.Query(`
+		SELECT p.symbol, p.quantity, p.average_price, COALESCE(dsp.price, p.average_price) as current_price
+		FROM portfolio p
+		LEFT JOIN (
+			SELECT symbol, price
+			FROM daily_stock_prices
+			WHERE updated_at = (SELECT MAX(updated_at) FROM daily_stock_prices)
+		) dsp ON p.symbol = dsp.symbol
+		WHERE p.user_id = ?
+	`, userId)
+	if err != nil {
+		fmt.Println("Error querying portfolio data:", err)
+		http.Error(w, "Failed to fetch portfolio", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var totalValue float64
+	portfolio := make(map[string]map[string]interface{})
+
+	for rows.Next() {
+		var symbol string
+		var quantity int
+		var averagePrice, currentPrice float64
+		err := rows.Scan(&symbol, &quantity, &averagePrice, &currentPrice)
+		if err != nil {
+			fmt.Println("Error scanning portfolio row:", err)
+			http.Error(w, "Failed to scan portfolio row", http.StatusInternalServerError)
+			return
+		}
+
+		currentValue := float64(quantity) * currentPrice
+		totalValue += currentValue
+
+		portfolio[symbol] = map[string]interface{}{
+			"quantity":     quantity,
+			"averagePrice": averagePrice,
+			"currentPrice": currentPrice,
+			"currentValue": currentValue,
+			"profitLoss":   currentValue - (float64(quantity) * averagePrice),
+		}
+	}
+
+	totalValue += balance
+
+	response := map[string]interface{}{
+		"username":   username,
+		"email":      email,
+		"balance":    balance,
+		"totalValue": totalValue,
+		"portfolio":  portfolio,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		fmt.Println("Error encoding response:", err)
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
+}
+
+func GetHistoricalPrices(w http.ResponseWriter, r *http.Request) {
+	symbol := r.URL.Query().Get("symbol")
+	if symbol == "" {
+		http.Error(w, "Symbol is required", http.StatusBadRequest)
+		return
+	}
+
+	days := 30 // Default to 30 days
+	if daysParam := r.URL.Query().Get("days"); daysParam != "" {
+		if parsedDays, err := strconv.Atoi(daysParam); err == nil {
+			days = parsedDays
+		}
+	}
+
+	rows, err := db.Query(`
+		SELECT date, price
+		FROM historical_prices
+		WHERE symbol = ?
+		AND date >= date('now', '-' || ? || ' days')
+		ORDER BY date ASC
+	`, symbol, days)
+	if err != nil {
+		http.Error(w, "Failed to fetch historical prices", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var prices []map[string]interface{}
+	for rows.Next() {
+		var date string
+		var price float64
+		if err := rows.Scan(&date, &price); err != nil {
+			http.Error(w, "Failed to scan historical price row", http.StatusInternalServerError)
+			return
+		}
+		prices = append(prices, map[string]interface{}{
+			"date":  date,
+			"price": price,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"symbol": symbol,
+		"prices": prices,
+	})
+}
+
+func GetRecentTrades(w http.ResponseWriter, r *http.Request) {
+	rows, err := db.Query(`
+        SELECT t.id, u.username, t.symbol, t.quantity, t.trade_type, t.rationale, 
+               (SELECT COUNT(*) FROM likes WHERE trade_id = t.id) as likes,
+               (SELECT COUNT(*) > 0 FROM likes WHERE trade_id = t.id AND user_id = 
+                   (SELECT id FROM users WHERE username = ?)) as liked_by_user
+        FROM trades t
+        JOIN users u ON t.user_id = u.id
+        ORDER BY t.trade_date DESC
+        LIMIT 50
+    `, getCookieValue(r, "session_token"))
+	if err != nil {
+		http.Error(w, "Failed to fetch recent trades", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var trades []map[string]interface{}
+	for rows.Next() {
+		var trade map[string]interface{} = make(map[string]interface{})
+		var id, quantity, likes int
+		var symbol, tradeType, rationale string
+		var likedByUser bool
+		var username string
+		err := rows.Scan(&id, &username, &symbol, &quantity, &tradeType, &rationale, &likes, &likedByUser)
+		trade["id"] = id
+		trade["username"] = username
+		trade["symbol"] = symbol
+		trade["quantity"] = quantity
+		trade["trade_type"] = tradeType
+		trade["rationale"] = rationale
+		trade["likes"] = likes
+		trade["liked_by_user"] = likedByUser
+		if err != nil {
+			http.Error(w, "Failed to scan trade row", http.StatusInternalServerError)
+			return
+		}
+		trades = append(trades, trade)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(trades)
+}
+
+func ToggleLike(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	tradeID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid trade ID", http.StatusBadRequest)
+		return
+	}
+
+	tradeUsername := getCookieValue(r, "session_token")
+	var userID int
+	err = db.QueryRow("SELECT id FROM users WHERE username = ?", tradeUsername).Scan(&userID)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	var exists bool
+	err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM likes WHERE user_id = ? AND trade_id = ?)", userID, tradeID).Scan(&exists)
+	if err != nil {
+		http.Error(w, "Failed to check like status", http.StatusInternalServerError)
+		return
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		http.Error(w, "Failed to start transaction", http.StatusInternalServerError)
+		return
+	}
+
+	if exists {
+		_, err = tx.Exec("DELETE FROM likes WHERE user_id = ? AND trade_id = ?", userID, tradeID)
+	} else {
+		_, err = tx.Exec("INSERT INTO likes (user_id, trade_id) VALUES (?, ?)", userID, tradeID)
+	}
+
+	if err != nil {
+		tx.Rollback()
+		http.Error(w, "Failed to toggle like", http.StatusInternalServerError)
+		return
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		http.Error(w, "Failed to commit transaction", http.StatusInternalServerError)
+		return
+	}
+
+	// Fetch updated trade info
+	var trade map[string]interface{} = make(map[string]interface{})
+	var id, quantity, likes int
+	var username, symbol, tradeType, rationale string
+	var likedByUser bool
+	err = db.QueryRow(`
+		SELECT t.id, u.username, t.symbol, t.quantity, t.trade_type, t.rationale, 
+			   (SELECT COUNT(*) FROM likes WHERE trade_id = t.id) as likes,
+			   (SELECT COUNT(*) > 0 FROM likes WHERE trade_id = t.id AND user_id = ?) as liked_by_user
+		FROM trades t
+		JOIN users u ON t.user_id = u.id
+		WHERE t.id = ?
+	`, userID, tradeID).Scan(&id, &username, &symbol, &quantity, &tradeType, &rationale, &likes, &likedByUser)
+	trade["id"] = id
+	trade["username"] = username
+	trade["symbol"] = symbol
+	trade["quantity"] = quantity
+	trade["trade_type"] = tradeType
+	trade["rationale"] = rationale
+	trade["likes"] = likes
+	trade["liked_by_user"] = likedByUser
+	if err != nil {
+		http.Error(w, "Failed to fetch updated trade info", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(trade)
+}
+
+func GetLeaderboard(w http.ResponseWriter, r *http.Request) {
+	rows, err := db.Query(`
+        SELECT u.username, 
+               (u.balance + COALESCE(SUM(p.quantity * s.current_price), 0)) as portfolio_value,
+               ((u.balance + COALESCE(SUM(p.quantity * s.current_price), 0)) - 10000) / 100 as gain_loss
+        FROM users u
+        LEFT JOIN portfolio p ON u.id = p.user_id
+        LEFT JOIN (
+            SELECT symbol, price as current_price
+            FROM historical_prices
+            WHERE date = (SELECT MAX(date) FROM historical_prices)
+        ) s ON p.symbol = s.symbol
+        GROUP BY u.id
+        ORDER BY portfolio_value DESC
+        LIMIT 10
+    `)
+	if err != nil {
+		http.Error(w, "Failed to fetch leaderboard data", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var leaderboard []map[string]interface{}
+	for rows.Next() {
+		var username string
+		var portfolioValue, gainLoss float64
+		err := rows.Scan(&username, &portfolioValue, &gainLoss)
+		if err != nil {
+			http.Error(w, "Failed to scan leaderboard row", http.StatusInternalServerError)
+			return
+		}
+		leaderboard = append(leaderboard, map[string]interface{}{
+			"username":       username,
+			"portfolioValue": portfolioValue,
+			"gainLoss":       gainLoss,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(leaderboard)
+}

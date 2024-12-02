@@ -6,40 +6,60 @@
     import { onMount } from 'svelte';
     import { navigate } from "svelte-routing";
 
-    let posts = [
-        { username: 'john_doe', ticker: 'AAPL', quantity: 50, rationale: 'Good long-term growth', likes: 0, liked: false },
-        { username: 'jane_smith', ticker: 'GOOGL', quantity: 20, rationale: 'Strong market position', likes: 0, liked: false },
-        { username: 'alice_jones', ticker: 'AMZN', quantity: 10, rationale: 'Innovative services', likes: 0, liked: false },
-        { username: 'bob_miller', ticker: 'TSLA', quantity: 15, rationale: 'Electric vehicles market leader', likes: 0, liked: false },
-        { username: 'charlie_brown', ticker: 'MSFT', quantity: 30, rationale: 'Dominance in software industry', likes: 0, liked: false }
-    ];
+    let posts = [];
 
-    onMount(() => {
+    onMount(async () => {
         if (!checkAuth()) {
             alert('Access Denied! Login Required');
             navigate('/');
+        } else {
+            await fetchPosts();
         }
     });
 
-    const toggleLike = (post) => {
-        post.liked = !post.liked;
-        if (post.liked)
-        {
-            post.likes = post.likes + 1;
-        }
-        else
-        {
-            post.likes = post.likes - 1;
-        }
+    async function fetchPosts() {
+        try {
+            const response = await fetch("http://localhost:5174/posts", {
+                method: "GET",
+                credentials: "include",
+            });
 
-    };
+            if (!response.ok) {
+                throw new Error("Failed to fetch posts");
+            }
+
+            posts = await response.json();
+        } catch (error) {
+            console.error("Error fetching posts:", error);
+        }
+    }
+
+    async function toggleLike(post) {
+        try {
+            const response = await fetch(`http://localhost:5174/like/${post.id}`, {
+                method: "POST",
+                credentials: "include",
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to toggle like");
+            }
+
+            const updatedPost = await response.json();
+            const index = posts.findIndex(p => p.id === post.id);
+            posts[index] = updatedPost;
+            posts = [...posts]; // Trigger reactivity
+        } catch (error) {
+            console.error("Error toggling like:", error);
+        }
+    }
 </script>
 
 <main>
     <Background />
     <Header />
     <div class="content">
-        <h1>Posts Page</h1>
+        <h1>Recent Trades</h1>
 
         <table>
             <thead>
@@ -47,7 +67,9 @@
                     <th>Username</th>
                     <th>Ticker</th>
                     <th>Quantity</th>
+                    <th>Trade Type</th>
                     <th>Rationale</th>
+                    <th>Date</th>
                     <th>Likes</th>
                 </tr>
             </thead>
@@ -55,22 +77,22 @@
                 {#each posts as post}
                     <tr>
                         <td>{post.username}</td>
-                        <td>{post.ticker}</td>
+                        <td>{post.symbol}</td>
                         <td>{post.quantity}</td>
+                        <td>{post.trade_type}</td>
                         <td>{post.rationale}</td>
+                        <td>{new Date(post.trade_date).toLocaleString()}</td>
                         <td>
-
                             <button
                                 class="like-heart"
                                 on:click={() => toggleLike(post)}
                             >
-                                {#if post.liked}
+                                {#if post.liked_by_user}
                                     ♥
                                 {:else}
                                     ♡
                                 {/if}
                             </button>
-                            <!-- Likes count -->
                             <span class="like-count">{post.likes}</span>
                         </td>
                     </tr>
@@ -112,7 +134,6 @@
         background-color: #f1f1f1;
     }
 
-    /* Heart button styles */
     .like-heart {
         cursor: pointer;
         font-size: 24px;
@@ -131,10 +152,5 @@
         font-size: 16px;
         margin-left: 10px;
         color: #333;
-    }
-
-    /* Rationale column should take up more space */
-    td:nth-child(4) {
-        width: 40%;
     }
 </style>
