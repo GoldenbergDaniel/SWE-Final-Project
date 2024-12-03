@@ -52,11 +52,11 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {#each leaderboardData as { username, portfolioValue, gainLoss }, index}
+                        {#each leaderboardData as { username, totalValue, gainLoss }, index}
                             <tr>
                                 <td>{index + 1}</td>
                                 <td>{username}</td>
-                                <td>${portfolioValue.toFixed(2)}</td>
+                                <td>${totalValue.toFixed(2)}</td>
                                 <td class={gainLoss >= 0 ? 'positive' : 'negative'}>
                                     {gainLoss.toFixed(2)}%
                                 </td>

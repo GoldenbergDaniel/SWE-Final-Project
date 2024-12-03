@@ -853,11 +853,11 @@ func GetHistoricalPrices(w http.ResponseWriter, r *http.Request) {
 
 func GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query(`
-		SELECT u.id, u.username, u.balance
-		FROM users u
-		ORDER BY u.balance DESC
-		LIMIT 10
-	`)
+        SELECT u.id, u.username, u.balance
+        FROM users u
+        ORDER BY u.balance DESC
+        LIMIT 10
+    `)
 	if err != nil {
 		http.Error(w, "Failed to fetch leaderboard data", http.StatusInternalServerError)
 		return
@@ -875,34 +875,10 @@ func GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		portfolioRows, err := db.Query(`
-			SELECT p.symbol, p.quantity, p.average_price, COALESCE(dsp.price, p.average_price) as current_price
-			FROM portfolio p
-			LEFT JOIN (
-				SELECT symbol, price
-				FROM daily_stock_prices
-				WHERE updated_at = (SELECT MAX(updated_at) FROM daily_stock_prices)
-			) dsp ON p.symbol = dsp. symbol
-			WHERE p.user_id = ?
-		`, userId)
+		portfolioValue, err := getPortfolioValue(userId)
 		if err != nil {
-			http.Error(w, "Failed to fetch portfolio data", http.StatusInternalServerError)
+			http.Error(w, "Failed to get portfolio value", http.StatusInternalServerError)
 			return
-		}
-		defer portfolioRows.Close()
-
-		var portfolioValue float64
-		for portfolioRows.Next() {
-			var symbol string
-			var quantity int
-			var averagePrice, currentPrice float64
-			err := portfolioRows.Scan(&symbol, &quantity, &averagePrice, &currentPrice)
-			if err != nil {
-				http.Error(w, "Failed to scan portfolio row", http.StatusInternalServerError)
-				return
-			}
-
-			portfolioValue += float64(quantity) * currentPrice
 		}
 
 		totalValue := balance + portfolioValue
@@ -915,10 +891,41 @@ func GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	// Sort the leaderboard by totalValue in descending order
 	sort.Slice(leaderboard, func(i, j int) bool {
 		return leaderboard[i]["totalValue"].(float64) > leaderboard[j]["totalValue"].(float64)
 	})
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(leaderboard)
+}
+
+// Helper function to calculate portfolio value
+func getPortfolioValue(userId int) (float64, error) {
+	rows, err := db.Query(`
+        SELECT p.quantity, COALESCE(dsp.price, p.average_price) as current_price
+        FROM portfolio p
+        LEFT JOIN (
+            SELECT symbol, price
+            FROM daily_stock_prices
+            WHERE updated_at = (SELECT MAX(updated_at) FROM daily_stock_prices)
+        ) dsp ON p.symbol = dsp.symbol
+        WHERE p.user_id = ?
+    `, userId)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	var totalValue float64
+	for rows.Next() {
+		var quantity int
+		var currentPrice float64
+		if err := rows.Scan(&quantity, &currentPrice); err != nil {
+			return 0, err
+		}
+		totalValue += float64(quantity) * currentPrice
+	}
+
+	return totalValue, nil
 }
