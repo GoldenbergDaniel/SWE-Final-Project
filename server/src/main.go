@@ -537,19 +537,22 @@ func GetStockPrice(w http.ResponseWriter, r *http.Request) {
 }
 
 func MakeTrade(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
 	var tradeReq struct {
 		Symbol    string `json:"symbol"`
 		Quantity  int    `json:"quantity"`
 		TradeType string `json:"trade_type"`
+		Rationale string `json:"rationale"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&tradeReq); err != nil {
-		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request payload"})
 		return
 	}
 
 	if tradeReq.Quantity <= 0 {
-		http.Error(w, "Quantity must be greater than 0", http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Quantity must be greater than 0"})
 		return
 	}
 
@@ -558,7 +561,7 @@ func MakeTrade(w http.ResponseWriter, r *http.Request) {
 
 	stockPrice, err := fetchStockPrice(tradeReq.Symbol)
 	if err != nil {
-		http.Error(w, "Failed to get stock price", http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to get stock price"})
 		return
 	}
 
@@ -567,18 +570,18 @@ func MakeTrade(w http.ResponseWriter, r *http.Request) {
 	var balance float64
 	err = db.QueryRow("SELECT balance FROM users WHERE username = ?", username).Scan(&balance)
 	if err != nil {
-		http.Error(w, "Failed to get user balance", http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to get user balance"})
 		return
 	}
 
 	if tradeReq.TradeType == "buy" && balance < totalCost {
-		http.Error(w, "Insufficient balance", http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Insufficient balance"})
 		return
 	}
 
 	tx, err := db.Begin()
 	if err != nil {
-		http.Error(w, "Failed to start transaction", http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start transaction"})
 		return
 	}
 
@@ -631,7 +634,7 @@ func MakeTrade(w http.ResponseWriter, r *http.Request) {
 
 	if newQuantity < 0 {
 		tx.Rollback()
-		http.Error(w, "Insufficient shares to sell", http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Insufficient shares to sell"})
 		return
 	}
 
@@ -656,6 +659,16 @@ func MakeTrade(w http.ResponseWriter, r *http.Request) {
 
 	if err := tx.Commit(); err != nil {
 		http.Error(w, "Failed to commit transaction", http.StatusInternalServerError)
+		return
+	}
+
+	_, err = tx.Exec(`
+        INSERT INTO posts (user_id, symbol, quantity, trade_type, rationale, trade_date)
+        VALUES (?, ?, ?, ?, ?, datetime('now'))
+    `, userId, tradeReq.Symbol, tradeReq.Quantity, tradeReq.TradeType, tradeReq.Rationale)
+
+	if err != nil {
+		http.Error(w, "Failed to create post for trade", http.StatusInternalServerError)
 		return
 	}
 
@@ -796,46 +809,52 @@ func GetHistoricalPrices(w http.ResponseWriter, r *http.Request) {
 
 func GetRecentTrades(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query(`
-        SELECT t.id, u.username, t.symbol, t.quantity, t.trade_type, t.rationale, 
-               (SELECT COUNT(*) FROM likes WHERE trade_id = t.id) as likes,
-               (SELECT COUNT(*) > 0 FROM likes WHERE trade_id = t.id AND user_id = 
+        SELECT p.id, u.username, p.symbol, p.quantity, p.trade_type, p.rationale, p.trade_date,
+               (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as likes,
+               (SELECT COUNT(*) > 0 FROM likes WHERE post_id = p.id AND user_id = 
                    (SELECT id FROM users WHERE username = ?)) as liked_by_user
-        FROM trades t
-        JOIN users u ON t.user_id = u.id
-        ORDER BY t.trade_date DESC
+        FROM posts p
+        JOIN users u ON p.user_id = u.id
+        ORDER BY p.trade_date DESC
         LIMIT 50
     `, getCookieValue(r, "session_token"))
 	if err != nil {
-		http.Error(w, "Failed to fetch recent trades", http.StatusInternalServerError)
+		http.Error(w, "Failed to fetch recent posts", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
 
-	var trades []map[string]interface{}
+	var posts []map[string]interface{}
 	for rows.Next() {
-		var trade map[string]interface{} = make(map[string]interface{})
+		var post = make(map[string]interface{})
+		var tradeDate string
 		var id, quantity, likes int
-		var symbol, tradeType, rationale string
+		var username, symbol, tradeType, rationale string
 		var likedByUser bool
-		var username string
-		err := rows.Scan(&id, &username, &symbol, &quantity, &tradeType, &rationale, &likes, &likedByUser)
-		trade["id"] = id
-		trade["username"] = username
-		trade["symbol"] = symbol
-		trade["quantity"] = quantity
-		trade["trade_type"] = tradeType
-		trade["rationale"] = rationale
-		trade["likes"] = likes
-		trade["liked_by_user"] = likedByUser
+		err := rows.Scan(&id, &username, &symbol, &quantity, &tradeType, &rationale, &tradeDate, &likes, &likedByUser)
 		if err != nil {
-			http.Error(w, "Failed to scan trade row", http.StatusInternalServerError)
+			http.Error(w, "Failed to scan post row", http.StatusInternalServerError)
 			return
 		}
-		trades = append(trades, trade)
+		post["id"] = id
+		post["username"] = username
+		post["symbol"] = symbol
+		post["quantity"] = quantity
+		post["trade_type"] = tradeType
+		post["rationale"] = rationale
+		post["trade_date"] = tradeDate
+		post["likes"] = likes
+		post["liked_by_user"] = likedByUser
+		if err != nil {
+			http.Error(w, "Failed to scan post row", http.StatusInternalServerError)
+			return
+		}
+		post["trade_date"] = tradeDate
+		posts = append(posts, post)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(trades)
+	json.NewEncoder(w).Encode(posts)
 }
 
 func ToggleLike(w http.ResponseWriter, r *http.Request) {

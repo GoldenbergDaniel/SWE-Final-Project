@@ -91,10 +91,10 @@
     </div>
     <div class="trade">
         <h2>Your Balance</h2>
-        <table>
+        <table class="balance-table">
             <thead>
                 <tr>
-                    <th>Balance</th>
+                    <th>Cash Available for Trading</th>
                 </tr>
             </thead>
             <tbody>
@@ -137,6 +137,11 @@
 </main>
 
 <style>
+    input {
+        color: rgba(59, 47, 47, 0.87);
+        background-color:rgb(229, 228, 217);
+    }
+
     .content{
         margin-top: 96px;
     }
@@ -146,13 +151,14 @@
         min-width: 250px;
         padding: 20px;
         border: 1px solid #ddd;
-        background-color: #f9f9f9;
+        background-color: rgba(59, 47, 47, 0.87);
         border-radius: 8px;
     }
 
     .trade h2 {
         text-align: center;
         margin-bottom: 20px;
+        color: rgb(229, 228, 217);
     }
 
     /* Balance table */
@@ -162,7 +168,14 @@
         margin-bottom: 20px;
     }
 
-    .trade th, .trade td {
+    .trade table thead {
+        color: rgb(229, 228, 217);
+        background-color: rgb(229, 228, 217);
+    }
+
+    .trade table th {
+        background-color: rgb(229, 228, 217);
+        color: rgba(59, 47, 47, 0.87);
         padding: 10px;
         text-align: center;
         border: 1px solid #ddd;
@@ -171,6 +184,14 @@
     .trade th {
         background-color: #f4f4f4;
         font-weight: bold;
+    }
+
+    .trade table td {
+        padding: 10px;
+        text-align: center;
+        border: 1px solid #ddd;
+        color: rgb(229, 228, 217);
+        font-size: 1.2em;
     }
 
     .trade td {
@@ -217,11 +238,15 @@
     .place-order-btn:active {
         background-color: #3e8e41;
     }
+    select{
+        background-color: rgb(229, 228, 217);
+        color: rgba(59, 47, 47, 0.87);
+    }
     select.input-field {
         appearance: none;
-        background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23007CB2%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+        background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20fill%3D%22rgba%2859%2C%2047%2C%2047%2C%200.87%29%22%20viewBox%3D%22-6.5%200%2032%2032%22%20version%3D%221.1%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20stroke%3D%22rgba%2859%2C%2047%2C%2047%2C%200.87%29%22%3E%3Cg%20id%3D%22SVGRepo_bgCarrier%22%20stroke-width%3D%220%22%3E%3C%2Fg%3E%3Cg%20id%3D%22SVGRepo_tracerCarrier%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3C%2Fg%3E%3Cg%20id%3D%22SVGRepo_iconCarrier%22%3E%3Ctitle%3Edropdown%3C%2Ftitle%3E%3Cpath%20d%3D%22M18.813%2011.406l-7.906%209.906c-0.75%200.906-1.906%200.906-2.625%200l-7.906-9.906c-0.75-0.938-0.375-1.656%200.781-1.656h16.875c1.188%200%201.531%200.719%200.781%201.656z%22%3E%3C%2Fpath%3E%3C%2Fg%3E%3C%2Fsvg%3E');
         background-repeat: no-repeat;
         background-position: right 0.7em top 50%;
-        background-size: 0.65em auto;
+        background-size: 1.20em auto;
     }
 </style>

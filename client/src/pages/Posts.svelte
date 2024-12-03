@@ -29,6 +29,7 @@
             }
 
             posts = await response.json();
+            console.log("Fetched posts:", posts);
         } catch (error) {
             console.error("Error fetching posts:", error);
         }
@@ -61,44 +62,44 @@
     <div class="content">
         <h1>Recent Trades</h1>
 
-        <table>
-            <thead>
-                <tr>
-                    <th>Username</th>
-                    <th>Ticker</th>
-                    <th>Quantity</th>
-                    <th>Trade Type</th>
-                    <th>Rationale</th>
-                    <th>Date</th>
-                    <th>Likes</th>
-                </tr>
-            </thead>
-            <tbody>
-                {#each posts as post}
+        {#if posts.length === 0}
+            <p>No trades have been made yet.</p>
+        {:else}
+            <table>
+                <thead>
                     <tr>
-                        <td>{post.username}</td>
-                        <td>{post.symbol}</td>
-                        <td>{post.quantity}</td>
-                        <td>{post.trade_type}</td>
-                        <td>{post.rationale}</td>
-                        <td>{new Date(post.trade_date).toLocaleString()}</td>
-                        <td>
-                            <button
-                                class="like-heart"
-                                on:click={() => toggleLike(post)}
-                            >
-                                {#if post.liked_by_user}
-                                    ♥
-                                {:else}
-                                    ♡
-                                {/if}
-                            </button>
-                            <span class="like-count">{post.likes}</span>
-                        </td>
+                        <th>Username</th>
+                        <th>Symbol</th>
+                        <th>Quantity</th>
+                        <th>Trade Type</th>
+                        <th>Rationale</th>
+                        <th>Date</th>
+                        <th>Likes</th>
                     </tr>
-                {/each}
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    {#each posts as post}
+                        <tr>
+                            <td>{post.username}</td>
+                            <td>{post.symbol}</td>
+                            <td>{post.quantity}</td>
+                            <td>{post.trade_type}</td>
+                            <td>{post.rationale}</td>
+                            <td>{new Date(post.trade_date).toLocaleString()}</td>
+                            <td>
+                                <button
+                                    class="like-heart"
+                                    on:click={() => toggleLike(post)}
+                                >
+                                    {post.liked_by_user ? '♥' : '♡'}
+                                </button>
+                                <span class="like-count">{post.likes}</span>
+                            </td>
+                        </tr>
+                    {/each}
+                </tbody>
+            </table>
+        {/if}
     </div>
     <Footer />
 </main>
