@@ -50,7 +50,7 @@
             const index = posts.findIndex(p => p.id === post.id);
             posts[index] = {
                 ...posts[index],
-                likes_count: updatedLikeData.likes_count,
+                likes: updatedLikeData.likes,
                 liked_by_user: updatedLikeData.liked_by_user
             };
             posts = [...posts]; // Trigger reactivity
@@ -68,7 +68,7 @@
         {#if posts.length === 0}
             <p class="no-posts">No trades have been made yet.</p>
         {:else}
-            {#each posts as post}
+            {#each posts as post (post.id)}
                 <div class="post">
                     <p class="trade-info">
                         <strong>{post.username}</strong> {post.trade_type === 'buy' ? 'bought' : 'sold'} {post.quantity} shares of {post.symbol}
@@ -82,7 +82,7 @@
                         >
                             {post.liked_by_user ? '♥' : '♡'}
                         </button>
-                        <span class="like-count">Likes: {post.likes !== undefined ? post.likes : 'N/A'}</span>
+                        <span class="like-count">Likes: {post.likes ?? 0}</span>
                     </div>
                 </div>
             {/each}

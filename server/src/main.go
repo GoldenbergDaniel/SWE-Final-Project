@@ -524,6 +524,21 @@ func GetStockPrice(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(stockPrice)
 }
 
+func getUserIdFromSession(r *http.Request) int {
+	cookie, err := r.Cookie("session_token")
+	if err != nil {
+		return 0 // or handle the error as appropriate for your application
+	}
+
+	var userId int
+	err = db.QueryRow("SELECT id FROM users WHERE username = ?", cookie.Value).Scan(&userId)
+	if err != nil {
+		return 0 // or handle the error as appropriate for your application
+	}
+
+	return userId
+}
+
 func MakeTrade(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("[REDACTED]", "[REDACTED]")
 
@@ -652,15 +667,15 @@ func MakeTrade(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetPosts(w http.ResponseWriter, r *http.Request) {
-	// Get the current user's ID from the session
 	userId := getUserIdFromSession(r)
 
 	rows, err := db.Query(`
         SELECT p.id, u.username, p.symbol, p.quantity, p.trade_type, p.rationale, p.trade_date,
                (SELECT COUNT(*) FROM posts_likes WHERE post_id = p.id) AS likes_count,
-               (SELECT COUNT(*) FROM posts_likes WHERE post_id = p.id AND user_id = ?) AS liked_by_user
+               CASE WHEN pl.user_id IS NOT NULL THEN 1 ELSE 0 END AS liked_by_user
         FROM posts p
         JOIN users u ON p.user_id = u.id
+        LEFT JOIN posts_likes pl ON p.id = pl.post_id AND pl.user_id = ?
         ORDER BY p.trade_date DESC
         LIMIT 50
     `, userId)
@@ -674,7 +689,8 @@ func GetPosts(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var postId int
 		var username, symbol, tradeType, rationale string
-		var quantity, likesCount, likedByUser int
+		var quantity, likesCount int
+		var likedByUser bool
 		var tradeDate time.Time
 		err := rows.Scan(&postId, &username, &symbol, &quantity, &tradeType, &rationale, &tradeDate, &likesCount, &likedByUser)
 		if err != nil {
@@ -683,19 +699,19 @@ func GetPosts(w http.ResponseWriter, r *http.Request) {
 		}
 
 		posts = append(posts, map[string]interface{}{
-			"id":            postId,
-			"username":      username,
-			"symbol":        symbol,
-			"quantity":      quantity,
-			"trade_type":    tradeType,
-			"rationale":     rationale,
-			"trade_date":    tradeDate,
-			"likes_count":   likesCount,
-			"liked_by_user": likedByUser == 1,
+			"id":         postId,
+			"username":   username,
+			"symbol":     symbol,
+			"quantity":   quantity,
+			"trade_type": tradeType,
+			"rationale":  rationale,
+			"trade_date": tradeDate,
+			"likes":      likesCount,
+			"[REDACTED]": likedByUser,
 		})
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("[REDACTED]", "[REDACTED]")
 	json.NewEncoder(w).Encode(posts)
 }
 
@@ -703,36 +719,50 @@ func ToggleLike(w http.ResponseWriter, r *http.Request) {
 	postId := mux.Vars(r)["id"]
 	userId := getUserIdFromSession(r)
 
-	_, err := db.Exec(`
-        INSERT INTO posts_likes (user_id, post_id)
-        VALUES (?, ?)
-        ON CONFLICT(user_id, post_id) DO
-        DELETE FROM posts_likes WHERE user_id = ? AND post_id = ?
-    `, userId, postId, userId, postId)
+	// Check if the user has already liked the post
+	var liked bool
+	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM posts_likes WHERE user_id = ? AND post_id = ?)", userId, postId).Scan(&liked)
+	if err != nil {
+		http.Error(w, "Failed to check like status", http.StatusInternalServerError)
+		return
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		http.Error(w, "Failed to start transaction", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	if liked {
+		_, err = tx.Exec("DELETE FROM posts_likes WHERE user_id = ? AND post_id = ?", userId, postId)
+	} else {
+		_, err = tx.Exec("INSERT INTO posts_likes (user_id, post_id) VALUES (?, ?)", userId, postId)
+	}
 
 	if err != nil {
 		http.Error(w, "Failed to toggle like", http.StatusInternalServerError)
 		return
 	}
 
-	// Fetch updated like count
+	// Get updated like count
 	var likesCount int
-	var likedByUser bool
-	err = db.QueryRow(`
-        SELECT 
-            (SELECT COUNT(*) FROM posts_likes WHERE post_id = ?),
-            EXISTS(SELECT 1 FROM posts_likes WHERE post_id = ? AND user_id = ?)
-    `, postId, postId, userId).Scan(&likesCount, &likedByUser)
-
+	err = tx.QueryRow("SELECT COUNT(*) FROM posts_likes WHERE post_id = ?", postId).Scan(&likesCount)
 	if err != nil {
 		http.Error(w, "Failed to get updated like count", http.StatusInternalServerError)
 		return
 	}
 
+	err = tx.Commit()
+	if err != nil {
+		http.Error(w, "Failed to commit transaction", http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"likes_count":   likesCount,
-		"liked_by_user": likedByUser,
+		"likes":         likesCount,
+		"liked_by_user": !liked, // Toggle the liked status
 	})
 }
 
