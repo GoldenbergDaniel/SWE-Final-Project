@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"regexp"
 	"sort"
@@ -39,90 +40,77 @@ func initDB() {
 	var err error
 	db, err = sql.Open("sqlite3", "./data.db")
 	if err != nil {
-		fmt.Println("Failed to connect to database:", err)
+		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
 	if err = db.Ping(); err != nil {
-		fmt.Println("Failed to ping database:", err)
+		log.Fatalf("Failed to ping database: %v", err)
 	}
 
-	// Create the users table
-	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS users (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			first_name TEXT NOT NULL,
-			last_name TEXT NOT NULL,
-			email TEXT UNIQUE NOT NULL,
-			username TEXT UNIQUE NOT NULL,
-			password TEXT NOT NULL,
-			balance REAL NOT NULL
-		)
-	`)
-	if err != nil {
-		fmt.Println("Error creating users table:", err)
-	}
-
-	// Create the trades table
-	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS trades (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			user_id INTEGER NOT NULL,
-			symbol TEXT NOT NULL,
-			quantity INTEGER NOT NULL,
-			price REAL NOT NULL,
-			trade_type TEXT NOT NULL,
-			trade_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-			FOREIGN KEY (user_id) REFERENCES users(id)
-		)
-	`)
-	if err != nil {
-		fmt.Println("Error creating trades table:", err)
-	}
-
-	// Create the portfolio table
-	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS portfolio (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			user_id INTEGER NOT NULL,
-			symbol TEXT NOT NULL,
-			quantity INTEGER NOT NULL,
-			average_price REAL NOT NULL,
-			FOREIGN KEY (user_id) REFERENCES users(id),
-			UNIQUE(user_id, symbol)
-		)
-	`)
-	if err != nil {
-		fmt.Println("Error creating portfolio table:", err)
-	}
-
-	// Create the historical_prices table
-	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS likes (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			user_id INTEGER NOT NULL,
-			trade_id INTEGER NOT NULL,
-			FOREIGN KEY (user_id) REFERENCES users(id),
-			FOREIGN KEY (trade_id) REFERENCES trades(id),
-			UNIQUE(user_id, trade_id)
-		)
-	`)
-	if err != nil {
-		fmt.Println("Error creating likes table:", err)
-	}
-
-	_, err = db.Exec(`
-        CREATE TABLE IF NOT EXISTS daily_stock_prices (
+	tables := []string{
+		`CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            first_name TEXT NOT NULL,
+            last_name TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            balance REAL NOT NULL
+        )`,
+		`CREATE TABLE IF NOT EXISTS trades (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            symbol TEXT NOT NULL,
+            quantity INTEGER NOT NULL,
+            price REAL NOT NULL,
+            trade_type TEXT NOT NULL,
+            trade_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )`,
+		`CREATE TABLE IF NOT EXISTS portfolio (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            symbol TEXT NOT NULL,
+            quantity INTEGER NOT NULL,
+            average_price REAL NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            UNIQUE(user_id, symbol)
+        )`,
+		`CREATE TABLE IF NOT EXISTS posts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            symbol TEXT NOT NULL,
+            quantity INTEGER NOT NULL,
+            trade_type TEXT NOT NULL,
+            rationale TEXT,
+            trade_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )`,
+		`CREATE TABLE IF NOT EXISTS posts_likes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            post_id INTEGER NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (post_id) REFERENCES posts(id),
+            UNIQUE(user_id, post_id)
+        )`,
+		`CREATE TABLE IF NOT EXISTS daily_stock_prices (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             symbol TEXT NOT NULL,
             price REAL NOT NULL,
             updated_at DATETIME NOT NULL,
             UNIQUE(symbol, updated_at)
-        )
-    `)
-	if err != nil {
-		fmt.Println("Error creating daily_stock_prices table:", err)
+        )`,
 	}
-	fmt.Println("Connected to database and ensured all tables exist.")
+
+	for _, table := range tables {
+		_, err := db.Exec(table)
+		if err != nil {
+			log.Printf("Error creating table: %v", err)
+		}
+	}
+
+	log.Println("Connected to database and ensured all tables exist.")
 }
 
 func main() {
@@ -143,9 +131,8 @@ func main() {
 	r.HandleFunc("/trade", AuthMiddleware(MakeTrade)).Methods("POST")
 	r.HandleFunc("/portfolio-value", AuthMiddleware(GetPortfolioValue)).Methods("GET")
 	r.HandleFunc("/historical-prices", AuthMiddleware(GetHistoricalPrices)).Methods("GET")
-	r.HandleFunc("/posts", AuthMiddleware(GetRecentTrades)).Methods("GET")
 	r.HandleFunc("/leaderboard", AuthMiddleware(GetLeaderboard)).Methods("GET")
-	r.HandleFunc("/like/{id}", AuthMiddleware(ToggleLike)).Methods("POST")
+	r.HandleFunc("/posts", AuthMiddleware(GetPosts)).Methods("GET")
 
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:5173"},
@@ -538,7 +525,7 @@ func GetStockPrice(w http.ResponseWriter, r *http.Request) {
 }
 
 func MakeTrade(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("[REDACTED]", "[REDACTED]")
 
 	var tradeReq struct {
 		Symbol    string `json:"symbol"`
@@ -548,12 +535,12 @@ func MakeTrade(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&tradeReq); err != nil {
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request payload"})
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
 
 	if tradeReq.Quantity <= 0 {
-		json.NewEncoder(w).Encode(map[string]string{"error": "Quantity must be greater than 0"})
+		http.Error(w, "Quantity must be greater than 0", http.StatusBadRequest)
 		return
 	}
 
@@ -562,29 +549,31 @@ func MakeTrade(w http.ResponseWriter, r *http.Request) {
 
 	stockPrice, err := fetchStockPrice(tradeReq.Symbol)
 	if err != nil {
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to get stock price"})
+		http.Error(w, "Failed to get stock price", http.StatusInternalServerError)
 		return
 	}
 
 	totalCost := float64(tradeReq.Quantity) * stockPrice
 
 	var balance float64
-	err = db.QueryRow("SELECT balance FROM users WHERE username = ?", username).Scan(&balance)
+	var userId int
+	err = db.QueryRow("SELECT id, balance FROM users WHERE username = ?", username).Scan(&userId, &balance)
 	if err != nil {
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to get user balance"})
+		http.Error(w, "Failed to get user data", http.StatusInternalServerError)
 		return
 	}
 
 	if tradeReq.TradeType == "buy" && balance < totalCost {
-		json.NewEncoder(w).Encode(map[string]string{"error": "Insufficient balance"})
+		http.Error(w, "Insufficient balance", http.StatusBadRequest)
 		return
 	}
 
 	tx, err := db.Begin()
 	if err != nil {
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start transaction"})
+		http.Error(w, "Failed to start transaction", http.StatusInternalServerError)
 		return
 	}
+	defer tx.Rollback()
 
 	var newBalance float64
 	if tradeReq.TradeType == "buy" {
@@ -593,27 +582,17 @@ func MakeTrade(w http.ResponseWriter, r *http.Request) {
 		newBalance = balance + totalCost
 	}
 
-	_, err = tx.Exec("UPDATE users SET balance = ? WHERE username = ?", newBalance, username)
+	_, err = tx.Exec("UPDATE users SET balance = ? WHERE id = ?", newBalance, userId)
 	if err != nil {
-		tx.Rollback()
 		http.Error(w, "Failed to update balance", http.StatusInternalServerError)
 		return
 	}
 
-	var userId int
-	err = tx.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&userId)
-	if err != nil {
-		tx.Rollback()
-		http.Error(w, "Failed to get user ID", http.StatusInternalServerError)
-		return
-	}
-
 	_, err = tx.Exec(`
-		INSERT INTO trades (user_id, symbol, quantity, price, trade_type)
-		VALUES (?, ?, ?, ?, ?)
-	`, userId, tradeReq.Symbol, tradeReq.Quantity, stockPrice, tradeReq.TradeType)
+        INSERT INTO trades (user_id, symbol, quantity, price, trade_type)
+        VALUES (?, ?, ?, ?, ?)
+    `, userId, tradeReq.Symbol, tradeReq.Quantity, stockPrice, tradeReq.TradeType)
 	if err != nil {
-		tx.Rollback()
 		http.Error(w, "Failed to record trade", http.StatusInternalServerError)
 		return
 	}
@@ -621,7 +600,6 @@ func MakeTrade(w http.ResponseWriter, r *http.Request) {
 	var currentQuantity int
 	err = tx.QueryRow("SELECT quantity FROM portfolio WHERE user_id = ? AND symbol = ?", userId, tradeReq.Symbol).Scan(&currentQuantity)
 	if err != nil && err != sql.ErrNoRows {
-		tx.Rollback()
 		http.Error(w, "Failed to get current portfolio quantity", http.StatusInternalServerError)
 		return
 	}
@@ -634,8 +612,7 @@ func MakeTrade(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if newQuantity < 0 {
-		tx.Rollback()
-		json.NewEncoder(w).Encode(map[string]string{"error": "Insufficient shares to sell"})
+		http.Error(w, "Insufficient shares to sell", http.StatusBadRequest)
 		return
 	}
 
@@ -643,40 +620,119 @@ func MakeTrade(w http.ResponseWriter, r *http.Request) {
 		_, err = tx.Exec("DELETE FROM portfolio WHERE user_id = ? AND symbol = ?", userId, tradeReq.Symbol)
 	} else {
 		_, err = tx.Exec(`
-			INSERT OR REPLACE INTO portfolio (user_id, symbol, quantity, average_price)
-			VALUES (?, ?, ?, (SELECT COALESCE(
-				(SELECT (average_price * quantity + ? * ?) / (quantity + ?)
-				FROM portfolio WHERE user_id = ? AND symbol = ?),
-				?
-			)))
-		`, userId, tradeReq.Symbol, newQuantity, tradeReq.Quantity, stockPrice, tradeReq.Quantity, userId, tradeReq.Symbol, stockPrice)
+            INSERT OR REPLACE INTO portfolio (user_id, symbol, quantity, average_price)
+            VALUES (?, ?, ?, (SELECT COALESCE(
+                (SELECT (average_price * quantity + ? * ?) / (quantity + ?)
+                FROM portfolio WHERE user_id = ? AND symbol = ?),
+                ?
+            )))
+        `, userId, tradeReq.Symbol, newQuantity, tradeReq.Quantity, stockPrice, tradeReq.Quantity, userId, tradeReq.Symbol, stockPrice)
 	}
 
 	if err != nil {
-		tx.Rollback()
 		http.Error(w, "Failed to update portfolio", http.StatusInternalServerError)
 		return
 	}
 
-	if err := tx.Commit(); err != nil {
-		http.Error(w, "Failed to commit transaction", http.StatusInternalServerError)
-		return
-	}
-
 	_, err = tx.Exec(`
-        INSERT INTO posts (user_id, symbol, quantity, trade_type, rationale, trade_date)
-        VALUES (?, ?, ?, ?, ?, datetime('now'))
-    `, userId, tradeReq.Symbol, tradeReq.Quantity, tradeReq.TradeType, tradeReq.Rationale)
+    INSERT INTO posts (user_id, symbol, quantity, trade_type, rationale, trade_date)
+    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+`, userId, tradeReq.Symbol, tradeReq.Quantity, tradeReq.TradeType, tradeReq.Rationale)
 
 	if err != nil {
+		tx.Rollback()
 		http.Error(w, "Failed to create post for trade", http.StatusInternalServerError)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"message":     "Trade successful",
 		"new_balance": newBalance,
+	})
+}
+
+func GetPosts(w http.ResponseWriter, r *http.Request) {
+	// Get the current user's ID from the session
+	userId := getUserIdFromSession(r)
+
+	rows, err := db.Query(`
+        SELECT p.id, u.username, p.symbol, p.quantity, p.trade_type, p.rationale, p.trade_date,
+               (SELECT COUNT(*) FROM posts_likes WHERE post_id = p.id) AS likes_count,
+               (SELECT COUNT(*) FROM posts_likes WHERE post_id = p.id AND user_id = ?) AS liked_by_user
+        FROM posts p
+        JOIN users u ON p.user_id = u.id
+        ORDER BY p.trade_date DESC
+        LIMIT 50
+    `, userId)
+	if err != nil {
+		http.Error(w, "Failed to fetch posts", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var posts []map[string]interface{}
+	for rows.Next() {
+		var postId int
+		var username, symbol, tradeType, rationale string
+		var quantity, likesCount, likedByUser int
+		var tradeDate time.Time
+		err := rows.Scan(&postId, &username, &symbol, &quantity, &tradeType, &rationale, &tradeDate, &likesCount, &likedByUser)
+		if err != nil {
+			http.Error(w, "Failed to scan post row", http.StatusInternalServerError)
+			return
+		}
+
+		posts = append(posts, map[string]interface{}{
+			"id":            postId,
+			"username":      username,
+			"symbol":        symbol,
+			"quantity":      quantity,
+			"trade_type":    tradeType,
+			"rationale":     rationale,
+			"trade_date":    tradeDate,
+			"likes_count":   likesCount,
+			"liked_by_user": likedByUser == 1,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(posts)
+}
+
+func ToggleLike(w http.ResponseWriter, r *http.Request) {
+	postId := mux.Vars(r)["id"]
+	userId := getUserIdFromSession(r)
+
+	_, err := db.Exec(`
+        INSERT INTO posts_likes (user_id, post_id)
+        VALUES (?, ?)
+        ON CONFLICT(user_id, post_id) DO
+        DELETE FROM posts_likes WHERE user_id = ? AND post_id = ?
+    `, userId, postId, userId, postId)
+
+	if err != nil {
+		http.Error(w, "Failed to toggle like", http.StatusInternalServerError)
+		return
+	}
+
+	// Fetch updated like count
+	var likesCount int
+	var likedByUser bool
+	err = db.QueryRow(`
+        SELECT 
+            (SELECT COUNT(*) FROM posts_likes WHERE post_id = ?),
+            EXISTS(SELECT 1 FROM posts_likes WHERE post_id = ? AND user_id = ?)
+    `, postId, postId, userId).Scan(&likesCount, &likedByUser)
+
+	if err != nil {
+		http.Error(w, "Failed to get updated like count", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"likes_count":   likesCount,
+		"liked_by_user": likedByUser,
 	})
 }
 
@@ -806,133 +862,6 @@ func GetHistoricalPrices(w http.ResponseWriter, r *http.Request) {
 		"symbol": symbol,
 		"prices": prices,
 	})
-}
-
-func GetRecentTrades(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query(`
-        SELECT p.id, u.username, p.symbol, p.quantity, p.trade_type, p.rationale, p.trade_date,
-               (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as likes,
-               (SELECT COUNT(*) > 0 FROM likes WHERE post_id = p.id AND user_id = 
-                   (SELECT id FROM users WHERE username = ?)) as liked_by_user
-        FROM posts p
-        JOIN users u ON p.user_id = u.id
-        ORDER BY p.trade_date DESC
-        LIMIT 50
-    `, getCookieValue(r, "session_token"))
-	if err != nil {
-		http.Error(w, "Failed to fetch recent posts", http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	var posts []map[string]interface{}
-	for rows.Next() {
-		var post = make(map[string]interface{})
-		var tradeDate string
-		var id, quantity, likes int
-		var username, symbol, tradeType, rationale string
-		var likedByUser bool
-		err := rows.Scan(&id, &username, &symbol, &quantity, &tradeType, &rationale, &tradeDate, &likes, &likedByUser)
-		if err != nil {
-			http.Error(w, "Failed to scan post row", http.StatusInternalServerError)
-			return
-		}
-		post["id"] = id
-		post["username"] = username
-		post["symbol"] = symbol
-		post["quantity"] = quantity
-		post["trade_type"] = tradeType
-		post["rationale"] = rationale
-		post["trade_date"] = tradeDate
-		post["likes"] = likes
-		post["liked_by_user"] = likedByUser
-		if err != nil {
-			http.Error(w, "Failed to scan post row", http.StatusInternalServerError)
-			return
-		}
-		post["trade_date"] = tradeDate
-		posts = append(posts, post)
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(posts)
-}
-
-func ToggleLike(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	tradeID, err := strconv.Atoi(vars["id"])
-	if err != nil {
-		http.Error(w, "Invalid trade ID", http.StatusBadRequest)
-		return
-	}
-
-	tradeUsername := getCookieValue(r, "session_token")
-	var userID int
-	err = db.QueryRow("SELECT id FROM users WHERE username = ?", tradeUsername).Scan(&userID)
-	if err != nil {
-		http.Error(w, "User not found", http.StatusNotFound)
-		return
-	}
-
-	var exists bool
-	err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM likes WHERE user_id = ? AND trade_id = ?)", userID, tradeID).Scan(&exists)
-	if err != nil {
-		http.Error(w, "Failed to check like status", http.StatusInternalServerError)
-		return
-	}
-
-	tx, err := db.Begin()
-	if err != nil {
-		http.Error(w, "Failed to start transaction", http.StatusInternalServerError)
-		return
-	}
-
-	if exists {
-		_, err = tx.Exec("DELETE FROM likes WHERE user_id = ? AND trade_id = ?", userID, tradeID)
-	} else {
-		_, err = tx.Exec("INSERT INTO likes (user_id, trade_id) VALUES (?, ?)", userID, tradeID)
-	}
-
-	if err != nil {
-		tx.Rollback()
-		http.Error(w, "Failed to toggle like", http.StatusInternalServerError)
-		return
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		http.Error(w, "Failed to commit transaction", http.StatusInternalServerError)
-		return
-	}
-
-	// Fetch updated trade info
-	var trade map[string]interface{} = make(map[string]interface{})
-	var id, quantity, likes int
-	var username, symbol, tradeType, rationale string
-	var likedByUser bool
-	err = db.QueryRow(`
-		SELECT t.id, u.username, t.symbol, t.quantity, t.trade_type, t.rationale, 
-			   (SELECT COUNT(*) FROM likes WHERE trade_id = t.id) as likes,
-			   (SELECT COUNT(*) > 0 FROM likes WHERE trade_id = t.id AND user_id = ?) as liked_by_user
-		FROM trades t
-		JOIN users u ON t.user_id = u.id
-		WHERE t.id = ?
-	`, userID, tradeID).Scan(&id, &username, &symbol, &quantity, &tradeType, &rationale, &likes, &likedByUser)
-	trade["id"] = id
-	trade["username"] = username
-	trade["symbol"] = symbol
-	trade["quantity"] = quantity
-	trade["trade_type"] = tradeType
-	trade["rationale"] = rationale
-	trade["likes"] = likes
-	trade["liked_by_user"] = likedByUser
-	if err != nil {
-		http.Error(w, "Failed to fetch updated trade info", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(trade)
 }
 
 func GetLeaderboard(w http.ResponseWriter, r *http.Request) {

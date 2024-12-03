@@ -46,41 +46,43 @@
     }
 
     async function placeOrder() {
-        try {
-            const response = await fetch("http://localhost:5174/trade", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    symbol: ticker,
-                    quantity: shareNumber,
-                    trade_type: tradeType,
-                    rationale: rationale
-                }),
-                credentials: "include",
-            });
+    try {
+        const response = await fetch("http://localhost:5174/trade", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                symbol: ticker,
+                quantity: shareNumber,
+                trade_type: tradeType,
+                rationale: rationale
+            }),
+            credentials: "include",
+        });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || "Failed to place order");
-            }
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error("Error response:", errorText);
+            throw new Error(`Failed to place order: ${response.status} ${response.statusText}`);
+        }
 
-            const data = await response.json();
-            alert(data.message);
+        const data = await response.json();
+        alert(data.message);
 
-            // Update user balance
-            userBalance = data.new_balance;
+        // Update user balance
+        userBalance = data.new_balance;
 
-            // Reset form fields
-            ticker = '';
-            shareNumber = 0;
-            rationale = '';
+        // Reset form fields
+        ticker = '';
+        shareNumber = 0;
+        rationale = '';
 
-        } catch (error) {
-            console.error("Error placing order:", error);
-            alert(error.message); }
+    } catch (error) {
+        console.error("Error placing order:", error);
+        alert(error.message);
     }
+}
 </script>
 
 <main>

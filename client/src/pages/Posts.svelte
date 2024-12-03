@@ -46,9 +46,13 @@
                 throw new Error("Failed to toggle like");
             }
 
-            const updatedPost = await response.json();
+            const updatedLikeData = await response.json();
             const index = posts.findIndex(p => p.id === post.id);
-            posts[index] = updatedPost;
+            posts[index] = {
+                ...posts[index],
+                likes_count: updatedLikeData.likes_count,
+                liked_by_user: updatedLikeData.liked_by_user
+            };
             posts = [...posts]; // Trigger reactivity
         } catch (error) {
             console.error("Error toggling like:", error);
@@ -59,83 +63,79 @@
 <main>
     <Background />
     <Header />
-    <div class="content">
-        <h1>Recent Trades</h1>
-
+    <div class="posts-container">
+        <h2>Recent Trades</h2>
         {#if posts.length === 0}
-            <p>No trades have been made yet.</p>
+            <p class="no-posts">No trades have been made yet.</p>
         {:else}
-            <table>
-                <thead>
-                    <tr>
-                        <th>Username</th>
-                        <th>Symbol</th>
-                        <th>Quantity</th>
-                        <th>Trade Type</th>
-                        <th>Rationale</th>
-                        <th>Date</th>
-                        <th>Likes</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {#each posts as post}
-                        <tr>
-                            <td>{post.username}</td>
-                            <td>{post.symbol}</td>
-                            <td>{post.quantity}</td>
-                            <td>{post.trade_type}</td>
-                            <td>{post.rationale}</td>
-                            <td>{new Date(post.trade_date).toLocaleString()}</td>
-                            <td>
-                                <button
-                                    class="like-heart"
-                                    on:click={() => toggleLike(post)}
-                                >
-                                    {post.liked_by_user ? '♥' : '♡'}
-                                </button>
-                                <span class="like-count">{post.likes}</span>
-                            </td>
-                        </tr>
-                    {/each}
-                </tbody>
-            </table>
+            {#each posts as post}
+                <div class="post">
+                    <p class="trade-info">
+                        <strong>{post.username}</strong> {post.trade_type === 'buy' ? 'bought' : 'sold'} {post.quantity} shares of {post.symbol}
+                    </p>
+                    <p class="rationale">Rationale: {post.rationale}</p>
+                    <p class="date">Date: {new Date(post.trade_date).toLocaleString()}</p>
+                    <div class="like-section">
+                        <button
+                            class="like-button"
+                            on:click={() => toggleLike(post)}
+                        >
+                            {post.liked_by_user ? '♥' : '♡'}
+                        </button>
+                        <span class="like-count">Likes: {post.likes !== undefined ? post.likes : 'N/A'}</span>
+                    </div>
+                </div>
+            {/each}
         {/if}
     </div>
     <Footer />
 </main>
 
 <style>
-    .content {
-        margin-top: 96px;
+    .posts-container {
+        max-width: 800px;
+        margin: 110px auto 0;
         padding: 20px;
+        background-color: rgba(59, 47, 47, 0.87);
+        border-radius: 8px;
     }
 
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 20px;
+    h2 {
+        color: rgb(229, 228, 217);
+        text-align: center;
+        margin-bottom: 20px;
     }
 
-    th, td {
-        padding: 10px;
-        text-align: left;
-        border: 1px solid #ddd;
+    .post {
+        background-color: rgb(229, 228, 217);
+        color: rgba(59, 47, 47, 0.87);
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 5px;
     }
 
-    th {
-        background-color: #f4f4f4;
-        font-weight: bold;
+    .post p {
+        margin: 5px 0;
     }
 
-    tr:nth-child(even) {
-        background-color: #f9f9f9;
+    .trade-info {
+        font-size: 18px;
     }
 
-    tr:hover {
-        background-color: #f1f1f1;
+    .rationale {
+        font-style: italic;
     }
 
-    .like-heart {
+    .date {
+        font-size: 14px;
+        color: #666;
+    }
+
+    .like-section {
+        margin-top: 10px;
+    }
+
+    .like-button {
         cursor: pointer;
         font-size: 24px;
         color: #ff6f61;
@@ -145,7 +145,7 @@
         transition: color 0.3s;
     }
 
-    .like-heart:hover {
+    .like-button:hover {
         color: #e63946;
     }
 
@@ -153,5 +153,10 @@
         font-size: 16px;
         margin-left: 10px;
         color: #333;
+    }
+
+    .no-posts {
+        color: rgb(229, 228, 217);
+        text-align: center;
     }
 </style>
