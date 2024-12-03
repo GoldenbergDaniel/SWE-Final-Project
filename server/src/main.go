@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"time"
 
@@ -936,18 +937,9 @@ func ToggleLike(w http.ResponseWriter, r *http.Request) {
 
 func GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query(`
-        SELECT u.username, 
-               (u.balance + COALESCE(SUM(p.quantity * s.current_price), 0)) as portfolio_value,
-               ((u.balance + COALESCE(SUM(p.quantity * s.current_price), 0)) - 10000) / 100 as gain_loss
+        SELECT u.id, u.username, u.balance
         FROM users u
-        LEFT JOIN portfolio p ON u.id = p.user_id
-        LEFT JOIN (
-            SELECT symbol, price as current_price
-            FROM historical_prices
-            WHERE date = (SELECT MAX(date) FROM historical_prices)
-        ) s ON p.symbol = s.symbol
-        GROUP BY u.id
-        ORDER BY portfolio_value DESC
+        ORDER BY u.balance DESC
         LIMIT 10
     `)
 	if err != nil {
@@ -958,19 +950,60 @@ func GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 
 	var leaderboard []map[string]interface{}
 	for rows.Next() {
+		var userId int
 		var username string
-		var portfolioValue, gainLoss float64
-		err := rows.Scan(&username, &portfolioValue, &gainLoss)
+		var balance float64
+		err := rows.Scan(&userId, &username, &balance)
 		if err != nil {
 			http.Error(w, "Failed to scan leaderboard row", http.StatusInternalServerError)
 			return
 		}
+
+		// Fetch portfolio data for each user
+		portfolioRows, err := db.Query(`
+            SELECT p.symbol, p.quantity, p.average_price, COALESCE(dsp.price, p.average_price) as current_price
+            FROM portfolio p
+            LEFT JOIN (
+                SELECT symbol, price
+                FROM daily_stock_prices
+                WHERE updated_at = (SELECT MAX(updated_at) FROM daily_stock_prices)
+            ) dsp ON p.symbol = dsp.symbol
+            WHERE p.user_id = ?
+        `, userId)
+		if err != nil {
+			http.Error(w, "Failed to fetch portfolio data", http.StatusInternalServerError)
+			return
+		}
+		defer portfolioRows.Close()
+
+		var portfolioValue float64
+		for portfolioRows.Next() {
+			var symbol string
+			var quantity int
+			var averagePrice, currentPrice float64
+			err := portfolioRows.Scan(&symbol, &quantity, &averagePrice, &currentPrice)
+			if err != nil {
+				http.Error(w, "Failed to scan portfolio row", http.StatusInternalServerError)
+				return
+			}
+
+			portfolioValue += float64(quantity) * currentPrice
+		}
+
+		totalValue := balance + portfolioValue
+		gainLoss := (totalValue - 10000) / 100 // Assuming initial balance was 10000
+
 		leaderboard = append(leaderboard, map[string]interface{}{
 			"username":       username,
-			"portfolioValue": portfolioValue,
+			"portfolioValue": totalValue,
 			"gainLoss":       gainLoss,
 		})
 	}
+
+	// Sort the leaderboard by portfolioValue in descending order
+	sort.Slice(leaderboard, func(i, j int) bool {
+		return leaderboard[i]["portfolioValue"].(float64) > leaderboard[j]["portfolioValue"].(float64)
+	})
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(leaderboard)

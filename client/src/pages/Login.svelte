@@ -40,6 +40,14 @@
     min-height: 550px;
   }
 
+  main h1 {
+    font-size: 4.5em;
+  }
+
+  main p {
+    font-size: 1.5em;
+  }
+
   .content {
     position: relative;
     z-index: 1; /* Make sure this content is above the background */

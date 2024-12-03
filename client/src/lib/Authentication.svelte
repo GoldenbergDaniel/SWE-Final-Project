@@ -177,9 +177,14 @@
     text-align: left;
   }
 
+  main h2 {
+    font-size: 3.0em;
+  }
+
   label {
     display: block;
     margin: 0.5em 0;
+    font-size: 1.5em;
   }
 
   input {
@@ -190,7 +195,7 @@
     box-sizing: border-box;
     color: white;
     border-color: antiquewhite;
-    background-color: black;
+    background-color: rgba(59, 47, 47, 0.87);
   }
 
   input:focus {
@@ -201,9 +206,9 @@
 
   button {
     padding: 0.7em 1.2em;
-    font-size: 1em;
+    font-size: 1.5em;
     margin: 2em 0;
-    background-color: black;
+    background-color: rgba(59, 47, 47, 0.87);
     color: white;
   }
 
@@ -216,7 +221,7 @@
     color: white;
     border: none;
     border-radius: 5px;
-    background-color: black;
+    background-color: rgba(59, 47, 47, 0.87);
   }
 
   .sign-in:hover {
