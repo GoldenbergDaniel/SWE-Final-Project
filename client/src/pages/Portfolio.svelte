@@ -141,7 +141,7 @@
         padding: 20px;
     }
 
-    h1, h2 {
+    h2 {
         color: rgb(229, 228, 217);
         text-align: center;
     }

@@ -141,9 +141,6 @@
         background-color:rgb(229, 228, 217);
     }
 
-    .content{
-        margin-top: 96px;
-    }
     /* Right side: Balance and Trade form */
     .trade {
         flex: 0 0 35%;
