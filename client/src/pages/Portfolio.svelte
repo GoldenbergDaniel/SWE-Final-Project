@@ -52,8 +52,6 @@
     <Background />
     <Header />
     <div class="content">
-        <h1>Portfolio Page</h1>
-
         {#if isLoading}
             <p>Loading portfolio data...</p>
         {:else if portfolioData}
@@ -137,7 +135,15 @@
     }
 
     .table-container {
-        width: 35%;
+        width: 60%;
+        background-color: rgba(59, 47, 47, 0.87);
+        border-radius: 8px;
+        padding: 20px;
+    }
+
+    h1, h2 {
+        color: rgb(229, 228, 217);
+        text-align: center;
     }
 
     table {
@@ -149,27 +155,36 @@
     th, td {
         padding: 10px;
         text-align: left;
-        border: 1px solid #ddd;
+        border: 1px solid rgb(229, 228, 217);
+        color: rgb(229, 228, 217);
     }
 
     th {
-        background-color: #f4f4f4;
+        background-color: rgb(229, 228, 217);
+        color: rgba(59, 47, 47, 0.87);
         font-weight: bold;
     }
 
     tr:nth-child(even) {
-        background-color: #f9f9f9;
+        background-color: rgba(229, 228, 217, 0.1);
     }
 
     tr:hover {
-        background-color: #f1f1f1;
+        background-color: rgba(229, 228, 217, 0.2);
     }
 
     .profit {
-        color: green;
+        color: #4CAF50;
     }
 
     .loss {
-        color: red;
+        color: #FF5252;
+    }
+
+    p {
+        color: rgb(229, 228, 217);
+        text-align: center;
+        font-weight: bold;
+        margin-top: 20px;
     }
 </style>

@@ -86,9 +86,6 @@
 <main>
     <Background />
     <Header />
-    <div class="content">
-        <h1>Trade Page</h1>
-    </div>
     <div class="trade">
         <h2>Your Balance</h2>
         <table class="balance-table">
@@ -153,6 +150,7 @@
         border: 1px solid #ddd;
         background-color: rgba(59, 47, 47, 0.87);
         border-radius: 8px;
+        margin-top: 110px;
     }
 
     .trade h2 {

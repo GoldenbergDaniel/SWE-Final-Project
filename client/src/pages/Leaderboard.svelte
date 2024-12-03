@@ -83,15 +83,20 @@
         gap: 20px;
     }
 
-    /* Left side: Leaderboard */
+    /* Leaderboard */
     .leaderboard {
         flex: 1;
         min-width: 45%;
+        background-color: rgba(59, 47, 47, 0.87);
+        border-radius: 8px;
+        padding: 20px;
     }
 
     .leaderboard h2 {
         text-align: center;
         margin-bottom: 20px;
+        color: rgb(229, 228, 217);
+        font-size: 30px;
     }
 
     .leaderboard table {
@@ -102,27 +107,30 @@
     .leaderboard th, .leaderboard td {
         padding: 10px;
         text-align: left;
-        border: 1px solid #ddd;
+        border: 1px solid rgb(229, 228, 217);
+        color: rgb(229, 228, 217);
+        font-size: 23px;
     }
 
     .leaderboard th {
-        background-color: #f4f4f4;
+        background-color: rgb(229, 228, 217);
+        color: rgba(59, 47, 47, 0.87);
         font-weight: bold;
     }
 
     .leaderboard tr:nth-child(even) {
-        background-color: #f9f9f9;
+        background-color: rgba(229, 228, 217, 0.1);
     }
 
     .leaderboard tr:hover {
-        background-color: #f1f1f1;
+        background-color: rgba(229, 228, 217, 0.2);
     }
     
     .positive {
-        color: green;
+        color: #4CAF50 !important;
     }
 
     .negative {
-        color: red;
+        color: #FF5252 !important;
     }
 </style>
