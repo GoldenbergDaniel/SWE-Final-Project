@@ -49,58 +49,58 @@ func initDB() {
 
 	tables := []string{
 		`CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            first_name TEXT NOT NULL,
-            last_name TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            balance REAL NOT NULL
-        )`,
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			first_name TEXT NOT NULL,
+			last_name TEXT NOT NULL,
+			email TEXT UNIQUE NOT NULL,
+			username TEXT UNIQUE NOT NULL,
+			password TEXT NOT NULL,
+			balance REAL NOT NULL
+		)`,
 		`CREATE TABLE IF NOT EXISTS trades (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            symbol TEXT NOT NULL,
-            quantity INTEGER NOT NULL,
-            price REAL NOT NULL,
-            trade_type TEXT NOT NULL,
-            trade_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        )`,
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			symbol TEXT NOT NULL,
+			quantity INTEGER NOT NULL,
+			price REAL NOT NULL,
+			trade_type TEXT NOT NULL,
+			trade_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id)
+		)`,
 		`CREATE TABLE IF NOT EXISTS portfolio (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            symbol TEXT NOT NULL,
-            quantity INTEGER NOT NULL,
-            average_price REAL NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES users(id),
-            UNIQUE(user_id, symbol)
-        )`,
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			symbol TEXT NOT NULL,
+			quantity INTEGER NOT NULL,
+			average_price REAL NOT NULL,
+			FOREIGN KEY (user_id) REFERENCES users(id),
+			UNIQUE(user_id, symbol)
+		)`,
 		`CREATE TABLE IF NOT EXISTS posts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            symbol TEXT NOT NULL,
-            quantity INTEGER NOT NULL,
-            trade_type TEXT NOT NULL,
-            rationale TEXT,
-            trade_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        )`,
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			symbol TEXT NOT NULL,
+			quantity INTEGER NOT NULL,
+			trade_type TEXT NOT NULL,
+			rationale TEXT,
+			trade_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id)
+		)`,
 		`CREATE TABLE IF NOT EXISTS posts_likes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            post_id INTEGER NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES users(id),
-            FOREIGN KEY (post_id) REFERENCES posts(id),
-            UNIQUE(user_id, post_id)
-        )`,
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			post_id INTEGER NOT NULL,
+			FOREIGN KEY (user_id) REFERENCES users(id),
+			FOREIGN KEY (post_id) REFERENCES posts(id),
+			UNIQUE(user_id, post_id)
+		)`,
 		`CREATE TABLE IF NOT EXISTS daily_stock_prices (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            symbol TEXT NOT NULL,
-            price REAL NOT NULL,
-            updated_at DATETIME NOT NULL,
-            UNIQUE(symbol, updated_at)
-        )`,
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			symbol TEXT NOT NULL,
+			price REAL NOT NULL,
+			updated_at DATETIME NOT NULL,
+			UNIQUE(symbol, updated_at)
+		)`,
 	}
 
 	for _, table := range tables {
@@ -121,7 +121,6 @@ func main() {
 
 	r := mux.NewRouter()
 
-	// Add your routes
 	r.HandleFunc("/signup", PostSignup).Methods("POST")
 	r.HandleFunc("/login", PostLogin).Methods("POST")
 	r.HandleFunc("/logout", Logout).Methods("POST")
@@ -133,6 +132,7 @@ func main() {
 	r.HandleFunc("/historical-prices", AuthMiddleware(GetHistoricalPrices)).Methods("GET")
 	r.HandleFunc("/leaderboard", AuthMiddleware(GetLeaderboard)).Methods("GET")
 	r.HandleFunc("/posts", AuthMiddleware(GetPosts)).Methods("GET")
+	r.HandleFunc("/like/{id}", AuthMiddleware(ToggleLike)).Methods("POST")
 
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:5173"},
@@ -143,7 +143,6 @@ func main() {
 
 	handler := c.Handler(r)
 
-	// Start the stock price update job
 	startStockPriceUpdateJob()
 
 	createDailyStockPricesTable()
@@ -159,14 +158,14 @@ func startStockPriceUpdateJob() {
 
 func createDailyStockPricesTable() {
 	_, err := db.Exec(`
-        CREATE TABLE IF NOT EXISTS daily_stock_prices (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            symbol TEXT NOT NULL,
-            price REAL NOT NULL,
-            updated_at DATETIME NOT NULL,
-            UNIQUE(symbol, updated_at)
-        )
-    `)
+		CREATE TABLE IF NOT EXISTS daily_stock_prices (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			symbol TEXT NOT NULL,
+			price REAL NOT NULL,
+			updated_at DATETIME NOT NULL,
+			UNIQUE(symbol, updated_at)
+		)
+	`)
 	if err != nil {
 		fmt.Println("Error creating daily_stock_prices table:", err)
 	}
@@ -189,9 +188,9 @@ func updateDailyStockPrices() {
 		}
 
 		_, err = db.Exec(`
-            INSERT INTO daily_stock_prices (symbol, price, updated_at)
-            VALUES (?, ?, datetime('now'))
-        `, symbol, price)
+			INSERT INTO daily_stock_prices (symbol, price, updated_at)
+			VALUES (?, ?, datetime('now'))
+		`, symbol, price)
 		if err != nil {
 			fmt.Printf("Error storing daily price for %s: %v\n", symbol, err)
 		} else {
@@ -200,44 +199,6 @@ func updateDailyStockPrices() {
 	}
 
 	fmt.Println("Daily stock price update completed")
-}
-
-func updateStockPrices() {
-	fmt.Printf("Updating stock prices at %s\n", time.Now().Format(time.RFC3339))
-
-	symbols, err := getUniqueSymbolsInPortfolios()
-	if err != nil {
-		fmt.Println("Error getting unique symbols:", err)
-		return
-	}
-
-	for _, symbol := range symbols {
-		price, err := fetchStockPrice(symbol)
-		if err != nil {
-			fmt.Printf("Error updating price for %s: %v\n", symbol, err)
-			continue
-		}
-
-		// Update the stockCache
-		stockCache[symbol] = StockPrice{
-			Symbol: symbol,
-			Price:  price,
-			Time:   time.Now().Format(time.RFC3339),
-		}
-
-		// Store historical price
-		_, err = db.Exec(`
-			INSERT OR REPLACE INTO historical_prices (symbol, price, date)
-			VALUES (?, ?, date('now'))
-		`, symbol, price)
-		if err != nil {
-			fmt.Printf("Error storing historical price for %s: %v\n", symbol, err)
-		}
-
-		fmt.Printf("Updated price for %s: $%.2f\n", symbol, price)
-	}
-
-	fmt.Println("Stock price update completed")
 }
 
 func getUniqueSymbolsInPortfolios() ([]string, error) {
@@ -332,7 +293,6 @@ func PostSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate input
 	if credentials.FirstName == "" || credentials.LastName == "" {
 		http.Error(w, "First Name and Last Name are required", http.StatusBadRequest)
 		return
@@ -348,7 +308,6 @@ func PostSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check for existing email
 	var exists int
 	err := db.QueryRow("SELECT COUNT(*) FROM users WHERE email = ?", credentials.Email).Scan(&exists)
 	if err != nil {
@@ -365,7 +324,6 @@ func PostSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check for existing username
 	err = db.QueryRow("SELECT COUNT(*) FROM users WHERE username = ?", credentials.Username).Scan(&exists)
 	if err != nil {
 		http.Error(w, "Error checking username", http.StatusInternalServerError)
@@ -381,14 +339,12 @@ func PostSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Hash the password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(credentials.Password), bcrypt.DefaultCost)
 	if err != nil {
 		http.Error(w, "Failed to hash password", http.StatusInternalServerError)
 		return
 	}
 
-	// Insert the user into the database
 	result, err := db.Exec(`
 		INSERT INTO users (first_name, last_name, email, username, password, balance)
 		VALUES (?, ?, ?, ?, ?, ?)
@@ -513,7 +469,6 @@ func GetStockPrice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// currentTime := time.Now().Format(time.RFC3339)
 	stockPrice := StockPrice{
 		Symbol: symbol,
 		Price:  price,
@@ -527,20 +482,20 @@ func GetStockPrice(w http.ResponseWriter, r *http.Request) {
 func getUserIdFromSession(r *http.Request) int {
 	cookie, err := r.Cookie("session_token")
 	if err != nil {
-		return 0 // or handle the error as appropriate for your application
+		return 0
 	}
 
 	var userId int
 	err = db.QueryRow("SELECT id FROM users WHERE username = ?", cookie.Value).Scan(&userId)
 	if err != nil {
-		return 0 // or handle the error as appropriate for your application
+		return 0
 	}
 
 	return userId
 }
 
 func MakeTrade(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("[REDACTED]", "[REDACTED]")
+	w.Header().Set("Content-Type", "application/json")
 
 	var tradeReq struct {
 		Symbol    string `json:"symbol"`
@@ -604,9 +559,9 @@ func MakeTrade(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = tx.Exec(`
-        INSERT INTO trades (user_id, symbol, quantity, price, trade_type)
-        VALUES (?, ?, ?, ?, ?)
-    `, userId, tradeReq.Symbol, tradeReq.Quantity, stockPrice, tradeReq.TradeType)
+		INSERT INTO trades (user_id, symbol, quantity, price, trade_type)
+		VALUES (?, ?, ?, ?, ?)
+	`, userId, tradeReq.Symbol, tradeReq.Quantity, stockPrice, tradeReq.TradeType)
 	if err != nil {
 		http.Error(w, "Failed to record trade", http.StatusInternalServerError)
 		return
@@ -635,13 +590,13 @@ func MakeTrade(w http.ResponseWriter, r *http.Request) {
 		_, err = tx.Exec("DELETE FROM portfolio WHERE user_id = ? AND symbol = ?", userId, tradeReq.Symbol)
 	} else {
 		_, err = tx.Exec(`
-            INSERT OR REPLACE INTO portfolio (user_id, symbol, quantity, average_price)
-            VALUES (?, ?, ?, (SELECT COALESCE(
-                (SELECT (average_price * quantity + ? * ?) / (quantity + ?)
-                FROM portfolio WHERE user_id = ? AND symbol = ?),
-                ?
-            )))
-        `, userId, tradeReq.Symbol, newQuantity, tradeReq.Quantity, stockPrice, tradeReq.Quantity, userId, tradeReq.Symbol, stockPrice)
+			INSERT OR REPLACE INTO portfolio (user_id, symbol, quantity, average_price)
+			VALUES (?, ?, ?, (SELECT COALESCE(
+				(SELECT (average_price * quantity + ? * ?) / (quantity + ?)
+				FROM portfolio WHERE user_id = ? AND symbol = ?),
+				?
+			)))
+		`, userId, tradeReq.Symbol, newQuantity, tradeReq.Quantity, stockPrice, tradeReq.Quantity, userId, tradeReq.Symbol, stockPrice)
 	}
 
 	if err != nil {
@@ -650,13 +605,17 @@ func MakeTrade(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = tx.Exec(`
-    INSERT INTO posts (user_id, symbol, quantity, trade_type, rationale, trade_date)
-    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+	INSERT INTO posts (user_id, symbol, quantity, trade_type, rationale, trade_date)
+	VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 `, userId, tradeReq.Symbol, tradeReq.Quantity, tradeReq.TradeType, tradeReq.Rationale)
 
 	if err != nil {
-		tx.Rollback()
 		http.Error(w, "Failed to create post for trade", http.StatusInternalServerError)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		http.Error(w, "Failed to commit transaction", http.StatusInternalServerError)
 		return
 	}
 
@@ -670,15 +629,15 @@ func GetPosts(w http.ResponseWriter, r *http.Request) {
 	userId := getUserIdFromSession(r)
 
 	rows, err := db.Query(`
-        SELECT p.id, u.username, p.symbol, p.quantity, p.trade_type, p.rationale, p.trade_date,
-               (SELECT COUNT(*) FROM posts_likes WHERE post_id = p.id) AS likes_count,
-               CASE WHEN pl.user_id IS NOT NULL THEN 1 ELSE 0 END AS liked_by_user
-        FROM posts p
-        JOIN users u ON p.user_id = u.id
-        LEFT JOIN posts_likes pl ON p.id = pl.post_id AND pl.user_id = ?
-        ORDER BY p.trade_date DESC
-        LIMIT 50
-    `, userId)
+		SELECT p.id, u.username, p.symbol, p.quantity, p.trade_type, p.rationale, p.trade_date,
+			   (SELECT COUNT(*) FROM posts_likes WHERE post_id = p.id) AS likes_count,
+			   CASE WHEN pl.user_id IS NOT NULL THEN 1 ELSE 0 END AS liked_by_user
+		FROM posts p
+		JOIN users u ON p.user_id = u.id
+		LEFT JOIN posts_likes pl ON p.id = pl.post_id AND pl.user_id = ?
+		ORDER BY p.trade_date DESC
+		LIMIT 50
+	`, userId)
 	if err != nil {
 		http.Error(w, "Failed to fetch posts", http.StatusInternalServerError)
 		return
@@ -699,19 +658,19 @@ func GetPosts(w http.ResponseWriter, r *http.Request) {
 		}
 
 		posts = append(posts, map[string]interface{}{
-			"id":         postId,
-			"username":   username,
-			"symbol":     symbol,
-			"quantity":   quantity,
-			"trade_type": tradeType,
-			"rationale":  rationale,
-			"trade_date": tradeDate,
-			"likes":      likesCount,
-			"[REDACTED]": likedByUser,
+			"id":            postId,
+			"username":      username,
+			"symbol":        symbol,
+			"quantity":      quantity,
+			"trade_type":    tradeType,
+			"rationale":     rationale,
+			"trade_date":    tradeDate,
+			"likes":         likesCount,
+			"liked_by_user": likedByUser,
 		})
 	}
 
-	w.Header().Set("[REDACTED]", "[REDACTED]")
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(posts)
 }
 
@@ -719,7 +678,6 @@ func ToggleLike(w http.ResponseWriter, r *http.Request) {
 	postId := mux.Vars(r)["id"]
 	userId := getUserIdFromSession(r)
 
-	// Check if the user has already liked the post
 	var liked bool
 	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM posts_likes WHERE user_id = ? AND post_id = ?)", userId, postId).Scan(&liked)
 	if err != nil {
@@ -745,7 +703,6 @@ func ToggleLike(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get updated like count
 	var likesCount int
 	err = tx.QueryRow("SELECT COUNT(*) FROM posts_likes WHERE post_id = ?", postId).Scan(&likesCount)
 	if err != nil {
@@ -762,7 +719,7 @@ func ToggleLike(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"likes":         likesCount,
-		"liked_by_user": !liked, // Toggle the liked status
+		"liked_by_user": !liked,
 	})
 }
 
@@ -816,15 +773,15 @@ func GetPortfolioValue(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		currentValue := float64(quantity) * currentPrice
-		totalValue += currentValue
+		marketValue := float64(quantity) * currentPrice
+		totalValue += marketValue
 
 		portfolio[symbol] = map[string]interface{}{
 			"quantity":     quantity,
 			"averagePrice": averagePrice,
 			"currentPrice": currentPrice,
-			"currentValue": currentValue,
-			"profitLoss":   currentValue - (float64(quantity) * averagePrice),
+			"marketValue":  marketValue,
+			"profitLoss":   marketValue - (float64(quantity) * averagePrice),
 		}
 	}
 
@@ -896,11 +853,11 @@ func GetHistoricalPrices(w http.ResponseWriter, r *http.Request) {
 
 func GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query(`
-        SELECT u.id, u.username, u.balance
-        FROM users u
-        ORDER BY u.balance DESC
-        LIMIT 10
-    `)
+		SELECT u.id, u.username, u.balance
+		FROM users u
+		ORDER BY u.balance DESC
+		LIMIT 10
+	`)
 	if err != nil {
 		http.Error(w, "Failed to fetch leaderboard data", http.StatusInternalServerError)
 		return
@@ -918,17 +875,16 @@ func GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Fetch portfolio data for each user
 		portfolioRows, err := db.Query(`
-            SELECT p.symbol, p.quantity, p.average_price, COALESCE(dsp.price, p.average_price) as current_price
-            FROM portfolio p
-            LEFT JOIN (
-                SELECT symbol, price
-                FROM daily_stock_prices
-                WHERE updated_at = (SELECT MAX(updated_at) FROM daily_stock_prices)
-            ) dsp ON p.symbol = dsp.symbol
-            WHERE p.user_id = ?
-        `, userId)
+			SELECT p.symbol, p.quantity, p.average_price, COALESCE(dsp.price, p.average_price) as current_price
+			FROM portfolio p
+			LEFT JOIN (
+				SELECT symbol, price
+				FROM daily_stock_prices
+				WHERE updated_at = (SELECT MAX(updated_at) FROM daily_stock_prices)
+			) dsp ON p.symbol = dsp. symbol
+			WHERE p.user_id = ?
+		`, userId)
 		if err != nil {
 			http.Error(w, "Failed to fetch portfolio data", http.StatusInternalServerError)
 			return
@@ -953,15 +909,14 @@ func GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 		gainLoss := (totalValue - 10000) / 100 // Assuming initial balance was 10000
 
 		leaderboard = append(leaderboard, map[string]interface{}{
-			"username":       username,
-			"portfolioValue": totalValue,
-			"gainLoss":       gainLoss,
+			"username":   username,
+			"totalValue": totalValue,
+			"gainLoss":   gainLoss,
 		})
 	}
 
-	// Sort the leaderboard by portfolioValue in descending order
 	sort.Slice(leaderboard, func(i, j int) bool {
-		return leaderboard[i]["portfolioValue"].(float64) > leaderboard[j]["portfolioValue"].(float64)
+		return leaderboard[i]["totalValue"].(float64) > leaderboard[j]["totalValue"].(float64)
 	})
 
 	w.Header().Set("Content-Type", "application/json")
