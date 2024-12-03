@@ -76,7 +76,7 @@
                                     <td>{ticker}</td>
                                     <td>{formatCurrency(stock.currentPrice)}</td>
                                     <td>{stock.quantity}</td>
-                                    <td>{formatCurrency(stock.currentValue)}</td>
+                                    <td>{formatCurrency(stock.currentPrice * stock.quantity)}</td>
                                     <td>{formatCurrency(stock.averagePrice)}</td>
                                     <td class={stock.profitLoss >= 0 ? 'profit' : 'loss'}>
                                         {formatCurrency(stock.profitLoss)}
