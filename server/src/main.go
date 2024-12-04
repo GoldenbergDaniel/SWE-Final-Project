@@ -145,8 +145,6 @@ func main() {
 
 	startStockPriceUpdateJob()
 
-	createDailyStockPricesTable()
-
 	fmt.Println(http.ListenAndServe(":5174", handler))
 }
 
@@ -154,21 +152,6 @@ func startStockPriceUpdateJob() {
 	c := cron.New()
 	c.AddFunc("0 9 * * *", updateDailyStockPrices) // Run every day at 9:00 AM
 	c.Start()
-}
-
-func createDailyStockPricesTable() {
-	_, err := db.Exec(`
-		CREATE TABLE IF NOT EXISTS daily_stock_prices (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			symbol TEXT NOT NULL,
-			price REAL NOT NULL,
-			updated_at DATETIME NOT NULL,
-			UNIQUE(symbol, updated_at)
-		)
-	`)
-	if err != nil {
-		fmt.Println("Error creating daily_stock_prices table:", err)
-	}
 }
 
 func updateDailyStockPrices() {
@@ -902,16 +885,33 @@ func GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 
 // Helper function to calculate portfolio value
 func getPortfolioValue(userId int) (float64, error) {
+	/* OLD ONE
+		rows, err := db.Query(`
+	        SELECT p.quantity, COALESCE(dsp.price, p.average_price) as current_price
+	        FROM portfolio p
+	        LEFT JOIN (
+	            SELECT symbol, price
+	            FROM daily_stock_prices
+	            WHERE updated_at = (SELECT MAX(updated_at) FROM daily_stock_prices)
+	        ) dsp ON p.symbol = dsp.symbol
+	        WHERE p.user_id = ?
+	    `, userId)
+	*/
 	rows, err := db.Query(`
-        SELECT p.quantity, COALESCE(dsp.price, p.average_price) as current_price
-        FROM portfolio p
-        LEFT JOIN (
-            SELECT symbol, price
-            FROM daily_stock_prices
-            WHERE updated_at = (SELECT MAX(updated_at) FROM daily_stock_prices)
-        ) dsp ON p.symbol = dsp.symbol
-        WHERE p.user_id = ?
-    `, userId)
+    	SELECT p.quantity, COALESCE(dsp.price, p.average_price) as current_price
+    	FROM portfolio p
+    	LEFT JOIN (
+        	SELECT dsp.symbol, dsp.price
+        	FROM daily_stock_prices dsp
+        	INNER JOIN (
+            	SELECT symbol, MAX(updated_at) AS latest_update
+            	FROM daily_stock_prices
+            	GROUP BY symbol
+        	) latest_prices
+        	ON dsp.symbol = latest_prices.symbol AND dsp.updated_at = latest_prices.latest_update
+    	) dsp ON p.symbol = dsp.symbol
+    	WHERE p.user_id = ?
+	`, userId)
 	if err != nil {
 		return 0, err
 	}
