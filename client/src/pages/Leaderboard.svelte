@@ -76,14 +76,12 @@
         padding: 20px;
     }
 
-    /* Flexbox layout for dashboard */
     .dashboard {
         display: flex;
         justify-content: space-between;
         gap: 20px;
     }
 
-    /* Leaderboard */
     .leaderboard {
         flex: 1;
         min-width: 45%;

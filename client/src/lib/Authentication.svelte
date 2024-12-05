@@ -21,7 +21,6 @@
   let properLogin = true;
   let errorMessage = '';
   
-  // Create form data bindings
   let formData: Partial<SignUpData> = {
     first_name: '',
     last_name: '',

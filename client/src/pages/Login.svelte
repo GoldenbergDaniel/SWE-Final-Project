@@ -6,7 +6,6 @@
   let showSignIn = false;
   let showSignUp = false;
 
-  // Handlers for sign-in and sign-up events
   const handleUpdateSignIn = (event) => {
     showSignIn = event.detail;
   };
@@ -24,7 +23,6 @@
     <p>Welcome to the Community Trading App</p>
   </div>
   
-  <!-- Authentication Component -->
   <Authentication
     {showSignIn}
     {showSignUp}
@@ -50,8 +48,8 @@
 
   .content {
     position: relative;
-    z-index: 1; /* Make sure this content is above the background */
-    text-align: center; /* Center the content */
+    z-index: 1;
+    text-align: center;
   }
 
   .logo {

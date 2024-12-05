@@ -141,7 +141,6 @@
         background-color:rgb(229, 228, 217);
     }
 
-    /* Right side: Balance and Trade form */
     .trade {
         flex: 0 0 35%;
         min-width: 250px;
@@ -158,7 +157,6 @@
         color: rgb(229, 228, 217);
     }
 
-    /* Balance table */
     .trade table {
         width: 100%;
         border-collapse: collapse;
@@ -195,7 +193,6 @@
         font-size: 1.2em;
     }
 
-    /* Input fields */
     .input-field {
         width: 100%;
         padding: 10px;
@@ -215,7 +212,6 @@
         outline: none;
     }
 
-    /* Place Order button */
     .place-order-btn {
         width: 100%;
         padding: 12px;

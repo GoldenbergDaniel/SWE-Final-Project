@@ -150,7 +150,7 @@ func main() {
 
 func startStockPriceUpdateJob() {
 	c := cron.New()
-	c.AddFunc("0 9 * * *", updateDailyStockPrices) // Run every day at 9:00 AM
+	c.AddFunc("10 15 * * *", updateDailyStockPrices)
 	c.Start()
 }
 
@@ -336,6 +336,8 @@ func PostSignup(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Failed to insert user", http.StatusInternalServerError)
 		return
+	} else {
+		fmt.Printf("Success: User Added")
 	}
 
 	id, _ := result.LastInsertId()
@@ -793,7 +795,7 @@ func GetHistoricalPrices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	days := 30 // Default to 30 days
+	days := 30
 	if daysParam := r.URL.Query().Get("days"); daysParam != "" {
 		if parsedDays, err := strconv.Atoi(daysParam); err == nil {
 			days = parsedDays
@@ -865,7 +867,7 @@ func GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 		}
 
 		totalValue := balance + portfolioValue
-		gainLoss := (totalValue - 10000) / 100 // Assuming initial balance was 10000
+		gainLoss := (totalValue - 10000) / 100
 
 		leaderboard = append(leaderboard, map[string]interface{}{
 			"username":   username,
@@ -874,7 +876,6 @@ func GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// Sort the leaderboard by totalValue in descending order
 	sort.Slice(leaderboard, func(i, j int) bool {
 		return leaderboard[i]["totalValue"].(float64) > leaderboard[j]["totalValue"].(float64)
 	})

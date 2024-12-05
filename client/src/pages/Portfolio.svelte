@@ -56,7 +56,6 @@
             <p>Loading portfolio data...</p>
         {:else if portfolioData}
             <div class="tables">
-                <!-- Stock data table -->
                 <div class="table-container">
                     <h2>Stock Portfolio</h2>
                     <table>
@@ -88,7 +87,6 @@
                     <p><strong>Total Portfolio Value: {formatCurrency(portfolioData.totalValue)}</strong></p>
                 </div>
 
-                <!-- User data table -->
                 <div class="table-container">
                     <h2>User Information</h2>
                     <table>

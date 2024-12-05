@@ -1,11 +1,9 @@
 <script lang=ts>
     import { Link } from 'svelte-routing';
     
-    // State to manage hamburger menu and dropdown
     let isMenuOpen = false;
     let isDropdownOpen = false;
 
-    // Toggles the hamburger menu open/close
     function toggleMenu() {
         isMenuOpen = !isMenuOpen;
     }
@@ -24,19 +22,16 @@
         });
     }
 
-    // Toggles the dropdown open/close
     function toggleDropdown() {
         isDropdownOpen = !isDropdownOpen;
     }
 
-    // Close the dropdown when clicking outside
     function closeDropdown(event) {
         if (!event.target.closest('.dropbtn')) {
             isDropdownOpen = false;
         }
     }
 
-    // Close the menu on window resize (optional, as you were doing)
     function handleResize() {
         if (window.innerWidth >= 1024) {
             isMenuOpen = false;
@@ -187,7 +182,6 @@
         color: rgba(59, 47, 47, 0.87);
     }
 
-    /* Spacing from the right side of the screen */
     .spaced-nav-item {
         margin-right: 80px;
     }
@@ -236,11 +230,11 @@
             flex-direction: column;
             background-color: rgba(59, 47, 47, 0.87);
             width: 200px;
-            height: 100%; /* Adjusted to take the full screen height */
+            height: 100%;
             text-align: center;
             transition: right 0.3s;
             justify-content: flex-start;
-            overflow-y: auto; /* Enables vertical scrolling */
+            overflow-y: auto;
         }
 
         .nav-item {

@@ -55,7 +55,7 @@
                 likes: updatedLikeData.likes,
                 liked_by_user: updatedLikeData.liked_by_user
             };
-            posts = [...posts]; // Trigger reactivity
+            posts = [...posts];
         } catch (error) {
             console.error("Error toggling like:", error);
         }
